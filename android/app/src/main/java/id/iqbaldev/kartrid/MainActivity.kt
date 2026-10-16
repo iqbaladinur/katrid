@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.app.ActivityManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -69,6 +70,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -80,7 +83,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var artCache: ArtCache
     private lateinit var sfx: Sfx
     private var justLaunched = false
-    private var detectedCores: List<String> = emptyList()
+    private var retroWatcher: Job? = null
+    private var detectedCores = listOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -109,6 +113,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (justLaunched) {
             justLaunched = false
+            retroWatcher?.cancel()
+            retroWatcher = null
             sfx.eject()
         }
     }
@@ -162,8 +168,35 @@ class MainActivity : ComponentActivity() {
         return runCatching {
             startActivity(i)
             justLaunched = true
+            watchRetroArchExit(pkg)
             null
         }.getOrElse { "Gagal buka RetroArch: ${it.message}" }
+    }
+
+    /** nunggu proses RetroArch mati → auto balik ke rak (console-launcher feel) */
+    private fun watchRetroArchExit(pkg: String) {
+        retroWatcher?.cancel()
+        retroWatcher = lifecycleScope.launch {
+            while (isProcessAlive(pkg)) {
+                delay(1000)
+            }
+            justLaunched = false
+            sfx.eject()
+            runCatching {
+                startActivity(
+                    Intent(this@MainActivity, MainActivity::class.java).addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT,
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun isProcessAlive(pkg: String): Boolean {
+        val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+        return am.runningAppProcesses?.any { it.processName == pkg } == true
     }
 }
 
