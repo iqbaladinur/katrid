@@ -74,13 +74,19 @@ fun Cartridge(
 
     Box(modifier = modifier.size((w + outlineRoom).dp, (h + outlineRoom).dp)) {
 
-        // outline lime 3px, jarak 3px dari shell (cuma yang fokus)
+        // ring seleksi: rounded + glow lapis (bukan kotak polos di sekeliling)
         if (focused) {
             Box(
                 Modifier
-                    .size((w + 6).dp, (h + 6).dp)
+                    .size((w + 14).dp, (h + 14).dp)
                     .align(Alignment.Center)
-                    .border(3.dp, T.lime),
+                    .border(2.dp, T.lime.copy(alpha = 0.28f), RoundedCornerShape(22.dp)),
+            )
+            Box(
+                Modifier
+                    .size((w + 7).dp, (h + 7).dp)
+                    .align(Alignment.Center)
+                    .border(2.5.dp, T.lime, RoundedCornerShape(15.dp)),
             )
         }
 
@@ -126,6 +132,15 @@ fun Cartridge(
                     .border(2.dp, if (style == CartStyle.C) Color(0xB3171711) else Color(0x99000000))
                     .background(if (style == CartStyle.C) Color(0xFFDED9C8) else T.labelBg),
             ) {
+                // inner hairline label (style C) — framing dobel biar gak flat
+                if (style == CartStyle.C) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .padding(3.dp)
+                            .border(1.dp, Color(0x26000000)),
+                    )
+                }
                 when {
                     art == null -> PlaceholderView(sys, focused)
                     style == CartStyle.C -> CartLabelC(sys, art, w, h, focused)
@@ -185,6 +200,26 @@ fun Cartridge(
                 }
             }
 
+            if (style == CartStyle.C) {
+                // side rail: alur vertikal di sisi shell
+                Box(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .offset(x = 4.dp, y = 24.dp)
+                        .width(2.dp)
+                        .height((h * 0.68f).dp)
+                        .background(Color(0x26171711)),
+                )
+                Box(
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .offset(x = -6.dp, y = 24.dp)
+                        .width(2.dp)
+                        .height((h * 0.68f).dp)
+                        .background(Color(0x26171711)),
+                )
+            }
+
             // pin kontak gold ala PCB (style C, di bawah shell)
             if (style == CartStyle.C) {
                 Box(
@@ -209,15 +244,25 @@ fun Cartridge(
                 }
             }
 
-            // notch / grip atas-kiri
+            // notch / grip atas-kiri (C: grip ganda ala kartrid asli)
             if (showNotch) {
                 Box(
                     Modifier
-                        .offset(x = 14.dp, y = 0.dp)
-                        .size(24.dp, 8.dp)
+                        .offset(x = 12.dp, y = 0.dp)
+                        .size(30.dp, 9.dp)
                         .background(T.bg)
                         .border(2.dp, T.black),
                 )
+                if (style == CartStyle.C) {
+                    Box(
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = -12.dp, y = 0.dp)
+                            .size(16.dp, 6.dp)
+                            .background(T.bg)
+                            .border(2.dp, T.black),
+                    )
+                }
             }
         }
     }
@@ -244,8 +289,8 @@ private fun CartLabelC(sys: Sys, art: ImageBitmap, w: Float, h: Float, focused: 
         Box(
             Modifier
                 .padding(vertical = 5.dp)
-                .width((w * 0.46f).dp)
-                .height((h * 0.5f).dp)
+                .width((w * 0.5f).dp)
+                .height((h * 0.55f).dp)
                 .border(1.5.dp, Color(0x99000000))
                 .background(Color(0xFF141414)),
         ) {
@@ -263,6 +308,14 @@ private fun CartLabelC(sys: Sys, art: ImageBitmap, w: Float, h: Float, focused: 
             fontFamily = MONO,
             fontSize = 4.4.sp,
             letterSpacing = 1.1.sp,
+            maxLines = 1,
+        )
+        Text(
+            text = "KRT-${sys.label}-01",
+            color = Color(0x664A4230),
+            fontFamily = MONO,
+            fontSize = 3.4.sp,
+            letterSpacing = 0.9.sp,
             maxLines = 1,
         )
     }
