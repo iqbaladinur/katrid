@@ -276,8 +276,7 @@ fun ShelfScreen(
             Modifier
                 .fillMaxWidth()
                 .height(TOP_H.dp)
-                .padding(horizontal = 22.dp)
-                .drawBehind { drawRect(T.hairline, topLeft = Offset(0f, size.height - 1.5f), size = Size(size.width, 1.5f)) },
+                .padding(horizontal = 22.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(22.dp),
         ) {
