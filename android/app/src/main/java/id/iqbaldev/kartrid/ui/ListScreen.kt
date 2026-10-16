@@ -252,10 +252,6 @@ fun ListScreen(
                 .offset(y = 592.dp),
             horizontalArrangement = Arrangement.Center,
         ) {
-            HintItem("^ v", "scroll")
-            Box(Modifier.width(22.dp))
-            HintItem("< >", "jump letter")
-            Box(Modifier.width(22.dp))
             HintItem("L1 R1", "10 rows")
             Box(Modifier.width(22.dp))
             HintItem("A", "play")
