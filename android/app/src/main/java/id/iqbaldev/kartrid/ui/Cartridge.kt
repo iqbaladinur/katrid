@@ -1,5 +1,6 @@
 package id.iqbaldev.kartrid.ui
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,10 +32,13 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.iqbaldev.kartrid.R
 import id.iqbaldev.kartrid.core.Sys
+import androidx.compose.ui.graphics.asImageBitmap
 
 /**
  * Kartrid GBA/GB: shell + notch + label boxart + band nama sistem.
@@ -45,8 +50,10 @@ import id.iqbaldev.kartrid.core.Sys
  * - C "RetroShell": shell abu gradasi rounded-top, label beige, boxart KECIL
  *   (~46% lebar, nggak penuh) + pin kontak gold — simplifikasi dari referensi
  *   kartrid retro (index.html/user, 17 Okt 2026). Semua style pakai Fit.
+ * - D "3D": shell photoreal hasil render (drawable-nodpi/cart_gba.png) + boxart
+ *   di-overlay pas label rect — 17 Okt 2026, user: "cari file 3d cartridge gba".
  */
-enum class CartStyle { A, B, C }
+enum class CartStyle { A, B, C, D }
 
 @Composable
 fun Cartridge(
@@ -59,8 +66,12 @@ fun Cartridge(
     clipFrac: Float = 0f,
     showNotch: Boolean = focused,
     showBand: Boolean = focused,
-    style: CartStyle = CartStyle.C,
+    style: CartStyle = CartStyle.D,
 ) {
+    if (style == CartStyle.D) {
+        Cartridge3D(sys, art, w, h, focused, modifier, clipFrac)
+        return
+    }
     val outlineRoom = if (focused) 12f else 0f
     val shape: Shape = when (style) {
         CartStyle.A -> if (sys.rounded) RoundedCornerShape(8.dp) else RectangleShape
@@ -68,6 +79,7 @@ fun Cartridge(
             RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomEnd = 3.dp, bottomStart = 3.dp)
         CartStyle.C ->
             RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 4.dp, bottomStart = 4.dp)
+        CartStyle.D -> RoundedCornerShape(8.dp) // unreachable (early return), biar exhaustive
     }
     val shell: Color = shellColor(sys.shell, focused)
     val shadow = if (focused) 8f else 5f
@@ -284,6 +296,77 @@ private fun PlaceholderView(sys: Sys, focused: Boolean) {
                 fontSize = 7.5.sp,
                 letterSpacing = 2.2.sp,
             )
+        }
+    }
+}
+
+/** Style D: shell render 3D (cart_gba.png) + boxart di label rect */
+@Composable
+private fun Cartridge3D(
+    sys: Sys,
+    art: ImageBitmap?,
+    w: Float,
+    h: Float,
+    focused: Boolean,
+    modifier: Modifier = Modifier,
+    clipFrac: Float = 0f,
+) {
+    val ctx = LocalContext.current
+    val shell = remember {
+        runCatching {
+            BitmapFactory.decodeResource(ctx.resources, R.drawable.cart_gba)?.asImageBitmap()
+        }.getOrNull()
+    }
+    val shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 6.dp, bottomStart = 6.dp)
+
+    Box(
+        modifier
+            .size(w.dp, h.dp)
+            .drawWithContent {
+                val bottom = size.height * (1f - clipFrac.coerceIn(0f, 1f))
+                clipRect(right = size.width, bottom = bottom) { this@drawWithContent.drawContent() }
+            }
+            .clip(shape),
+    ) {
+        if (shell != null) {
+            Image(
+                bitmap = shell,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+                colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
+            )
+        }
+        // label rect (fraksi dari asset cart_gba.png) — overlay boxart biar "nempel"
+        val lx = w * 0.115f
+        val ly = h * 0.205f
+        val lw = w * 0.770f
+        val lh = h * 0.650f
+        Box(
+            Modifier
+                .offset(x = lx.dp, y = ly.dp)
+                .size(lw.dp, lh.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF101014)),
+        ) {
+            if (art != null) {
+                Image(
+                    bitmap = art,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit,
+                )
+            } else {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = sys.label,
+                        color = T.mutedFg.copy(alpha = 0.8f),
+                        fontFamily = DISPLAY,
+                        fontSize = 24.sp,
+                        letterSpacing = 2.sp,
+                    )
+                }
+            }
         }
     }
 }
