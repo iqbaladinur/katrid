@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -230,8 +232,9 @@ fun ListScreen(
                         Box(
                             Modifier
                                 .size(46f.tdp)
-                                .border(1.5.dp, T.black)
-                                .background(shellColor(g.sys.shell, on)),
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(shellColor(g.sys.shell, on))
+                                .border(1.5.dp, T.black, RoundedCornerShape(9.dp)),
                             contentAlignment = Alignment.Center,
                         ) {
                             val bmp = art

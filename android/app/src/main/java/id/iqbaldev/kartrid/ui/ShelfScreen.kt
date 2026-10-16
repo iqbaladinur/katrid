@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,13 +68,13 @@ import kotlin.math.sign
 private const val TOP_H = 84f
 private const val FAV_SHELL = 0xFFFFC94D
 private const val CENTER_X = 480f
-// kartrid PORTRAIT — Switch-card style (0.72:1), diperbesar
-private const val CART_BOTTOM = 396f
-private const val FOCUS_W = 196f
-private const val FOCUS_H = 272f
-private const val ITEM_W = 132f
-private const val GAP = 42f
-private const val SLOT_TOP = 396f
+// kartrid PORTRAIT — Switch-card style (0.72:1), fokus gede + turun
+private const val CART_BOTTOM = 410f
+private const val FOCUS_W = 214f
+private const val FOCUS_H = 296f
+private const val ITEM_W = 140f
+private const val GAP = 44f
+private const val SLOT_TOP = 410f
 
 private fun widthAt(d: Float): Float {
     val t = d.coerceIn(0f, 1f)
@@ -218,16 +219,8 @@ fun ShelfScreen(
                         art = withContext(Dispatchers.IO) { artOf(g) }
                     }
 
-                    Cartridge(
-                        sys = g.sys,
-                        art = art,
-                        w = w,
-                        h = h,
-                        focused = focused,
-                        clipFrac = if (isFocusedCart) clipFrac else 0f,
-                        showBand = focused,
-                        showNotch = focused,
-                        modifier = Modifier
+                    Box(
+                        Modifier
                             .offset(
                                 x = (xLeft - room).dp,
                                 y = (yTop - room + if (isFocusedCart) yOff.value else 0f).dp,
@@ -244,7 +237,33 @@ fun ShelfScreen(
                                 }
                                 transformOrigin = TransformOrigin(0.5f, 1f)
                             },
-                    )
+                    ) {
+                        Cartridge(
+                            sys = g.sys,
+                            art = art,
+                            w = w,
+                            h = h,
+                            focused = focused,
+                            clipFrac = if (isFocusedCart) clipFrac else 0f,
+                            showBand = focused,
+                            showNotch = focused,
+                        )
+                        // spinner loading di ATAS boxart kartrid fokus (bukan overlay fullscreen)
+                        if (isFocusedCart && loading != null) {
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(T.bg.copy(alpha = 0.45f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(46.dp),
+                                    color = T.lime,
+                                    strokeWidth = 3.5.dp,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -399,9 +418,6 @@ fun ShelfScreen(
         if (games.isEmpty() && !scanning) {
             EmptyPanel()
         }
-
-        // ---- overlay loading setelah kartrid masuk ----
-        loading?.let { LoadOverlay(it) }
     }
 
     LaunchedEffect(games.size) {
@@ -495,42 +511,6 @@ private fun EmptyPanel() {
             fontSize = 12.sp,
             textAlign = TextAlign.Center,
         )
-    }
-}
-
-@Composable
-private fun LoadOverlay(g: Game) {
-    Box(Modifier.fillMaxSize().background(T.bg.copy(alpha = 0.86f)))
-    Column(
-        Modifier.fillMaxWidth().offset(y = 250.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = "LOADING",
-            color = T.fg,
-            fontFamily = DISPLAY,
-            fontSize = 24.sp,
-        )
-        Text(
-            text = g.title,
-            color = T.mutedFg,
-            fontFamily = MONO,
-            fontSize = 11.sp,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        Box(
-            Modifier
-                .padding(top = 14.dp)
-                .size(430.dp, 8.dp)
-                .border(1.5.dp, T.hairline)
-                .background(T.muted),
-        ) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .drawBehind { drawRect(T.lime, size = Size(size.width * 0.64f, size.height)) },
-            )
-        }
     }
 }
 
