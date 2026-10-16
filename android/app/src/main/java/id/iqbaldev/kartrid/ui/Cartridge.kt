@@ -74,22 +74,6 @@ fun Cartridge(
 
     Box(modifier = modifier.size((w + outlineRoom).dp, (h + outlineRoom).dp)) {
 
-        // ring seleksi: rounded + glow lapis (bukan kotak polos di sekeliling)
-        if (focused) {
-            Box(
-                Modifier
-                    .size((w + 14).dp, (h + 14).dp)
-                    .align(Alignment.Center)
-                    .border(2.dp, T.lime.copy(alpha = 0.28f), RoundedCornerShape(22.dp)),
-            )
-            Box(
-                Modifier
-                    .size((w + 7).dp, (h + 7).dp)
-                    .align(Alignment.Center)
-                    .border(2.5.dp, T.lime, RoundedCornerShape(15.dp)),
-            )
-        }
-
         // hard shadow
         Box(
             Modifier
@@ -200,50 +184,6 @@ fun Cartridge(
                 }
             }
 
-            if (style == CartStyle.C) {
-                // side rail: alur vertikal di sisi shell
-                Box(
-                    Modifier
-                        .align(Alignment.CenterStart)
-                        .offset(x = 4.dp, y = 24.dp)
-                        .width(2.dp)
-                        .height((h * 0.68f).dp)
-                        .background(Color(0x26171711)),
-                )
-                Box(
-                    Modifier
-                        .align(Alignment.CenterEnd)
-                        .offset(x = -6.dp, y = 24.dp)
-                        .width(2.dp)
-                        .height((h * 0.68f).dp)
-                        .background(Color(0x26171711)),
-                )
-            }
-
-            // pin kontak gold ala PCB (style C, di bawah shell)
-            if (style == CartStyle.C) {
-                Box(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                        .height(9.dp)
-                        .background(Color(0xFF191912)),
-                ) {
-                    Row(
-                        Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        repeat(6) {
-                            Box(Modifier.width(12.dp).height(5.dp).background(Color(0xFFC9A94B)))
-                        }
-                    }
-                }
-            }
-
             // notch / grip atas-kiri (C: grip ganda ala kartrid asli)
             if (showNotch) {
                 Box(
@@ -286,13 +226,14 @@ private fun CartLabelC(sys: Sys, art: ImageBitmap, w: Float, h: Float, focused: 
             letterSpacing = 1.2.sp,
             maxLines = 1,
         )
+        // art 1:1 square + rounded (user: "covernya itu 1:1 aja, rounded gambar nya")
         Box(
             Modifier
-                .padding(vertical = 5.dp)
-                .width((w * 0.5f).dp)
-                .height((h * 0.55f).dp)
-                .border(1.5.dp, Color(0x99000000))
-                .background(Color(0xFF141414)),
+                .padding(vertical = 6.dp)
+                .size((h * 0.52f).dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF141414))
+                .border(1.5.dp, Color(0x99000000), RoundedCornerShape(10.dp)),
         ) {
             Image(
                 bitmap = art,

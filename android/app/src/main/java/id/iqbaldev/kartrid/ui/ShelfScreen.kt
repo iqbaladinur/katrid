@@ -39,6 +39,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEventType
@@ -66,14 +67,14 @@ import kotlin.math.sign
 private const val TOP_H = 84f
 private const val FAV_SHELL = 0xFFFFC94D
 private const val CENTER_X = 480f
-// kartrid VERTIKAL (portrait 0.74:1) — user: "bentuknya ga memanjang vertical aja?"
+// kartrid LANDSCAPE (kembali; user: "vertical ini tambah jelek")
 private const val CART_BOTTOM = 380f
-private const val FOCUS_W = 176f
-private const val FOCUS_H = 238f
-private const val ITEM_W = 120f
-private const val GAP = 40f
-private const val SLOT_W = 136f
-private const val SLOT_H = 16f
+private const val FOCUS_W = 288f
+private const val FOCUS_H = 206f
+private const val ITEM_W = 196f
+private const val GAP = 34f
+private const val SLOT_W = 204f
+private const val SLOT_H = 18f
 private const val SLOT_TOP = 380f
 
 private fun widthAt(d: Float): Float {
@@ -141,16 +142,16 @@ fun ShelfScreen(
 
     suspend fun play(g: Game) = coroutineScope {
         tip = "MENUJU SLOT…"
-        launch { yOff.animateTo(40f, tween(220)) }
+        launch { yOff.animateTo(58f, tween(220)) }
         launch { scale.animateTo(0.96f, tween(220)) }
         delay(230)
 
         sfx.insert()
         sfx.haptic(18)
         tip = "KLEK!"
-        clipFrac = 0.42f
+        clipFrac = 0.46f
         flash = true
-        launch { yOff.animateTo(26f, tween(90)) }
+        launch { yOff.animateTo(44f, tween(90)) }
         launch { scale.animateTo(0.98f, tween(90)) }
         delay(200)
 
@@ -245,6 +246,13 @@ fun ShelfScreen(
                                 val s = if (isFocusedCart) scale.value else 1f
                                 scaleX = s
                                 scaleY = s
+                                // skew perspektif halus: kartrid di kiri condong ke kiri,
+                                // kanan condong ke kanan (fan ala rak), fokus tegak
+                                rotationZ = if (isFocusedCart) 0f else {
+                                    val side = if (i < index) -1f else 1f
+                                    side * (1.8f + 0.9f * d.coerceAtMost(1f)).coerceAtMost(3.5f)
+                                }
+                                transformOrigin = TransformOrigin(0.5f, 1f)
                             },
                     )
                 }
@@ -255,20 +263,20 @@ fun ShelfScreen(
         if (flash) {
             Box(
                 Modifier
-                    .offset(x = (CENTER_X - 78f).dp, y = (SLOT_TOP - 2f).dp)
-                    .size(156.dp, 7.dp)
+                    .offset(x = (CENTER_X - 130f).dp, y = (SLOT_TOP - 2f).dp)
+                    .size(260.dp, 9.dp)
                     .background(T.lime.copy(alpha = 0.85f)),
             )
             Box(
                 Modifier
-                    .offset(x = (CENTER_X - 96f).dp, y = (SLOT_TOP - 12f).dp)
-                    .size(192.dp, 46.dp)
+                    .offset(x = (CENTER_X - 150f).dp, y = (SLOT_TOP - 16f).dp)
+                    .size(300.dp, 74.dp)
                     .border(2.dp, T.lime.copy(alpha = 0.5f)),
             )
             Box(
                 Modifier
-                    .offset(x = (CENTER_X - 96f).dp, y = (SLOT_TOP - 12f).dp)
-                    .size(192.dp, 46.dp)
+                    .offset(x = (CENTER_X - 150f).dp, y = (SLOT_TOP - 16f).dp)
+                    .size(300.dp, 74.dp)
                     .border(6.dp, T.lime.copy(alpha = 0.10f)),
             )
         }
