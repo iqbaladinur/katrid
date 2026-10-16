@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -103,6 +104,29 @@ fun Cartridge(
                         contentScale = ContentScale.Crop,
                         colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
                     )
+                } else {
+                    // placeholder: monogram sistem + caption (belum ada boxart)
+                    Box(
+                        Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = sys.label,
+                                color = T.mutedFg.copy(alpha = if (focused) 0.85f else 0.5f),
+                                fontFamily = DISPLAY,
+                                fontSize = if (sys.rounded) 22.sp else 26.sp,
+                                letterSpacing = 2.sp,
+                            )
+                            Text(
+                                text = "NO ART",
+                                color = T.mutedFg.copy(alpha = if (focused) 0.55f else 0.35f),
+                                fontFamily = MONO,
+                                fontSize = 7.5.sp,
+                                letterSpacing = 2.2.sp,
+                            )
+                        }
+                    }
                 }
             }
 

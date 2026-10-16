@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.view.KeyEvent
 import android.provider.Settings as ASettings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -46,6 +47,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import id.iqbaldev.kartrid.core.ART_FAILED
+import id.iqbaldev.kartrid.core.ART_NEVER
 import id.iqbaldev.kartrid.core.ART_OK
 import id.iqbaldev.kartrid.core.ArtCache
 import id.iqbaldev.kartrid.core.Game
@@ -73,9 +75,15 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : ComponentActivity() {
 
@@ -107,6 +115,11 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        android.util.Log.d("Kartrid", "KEYDOWN code=$keyCode name=${KeyEvent.keyCodeToString(keyCode)}")
+        return super.onKeyDown(keyCode, event)
     }
 
     override fun onResume() {
@@ -177,6 +190,14 @@ class MainActivity : ComponentActivity() {
     private fun watchRetroArchExit(pkg: String) {
         retroWatcher?.cancel()
         retroWatcher = lifecycleScope.launch {
+            // TUNGGU proses RA beneran spawn (max 10s) — kalau langsung poll, RA belum
+            // muncul dan watcher ngira RA mati → narik app ke depan = launch kebatalan.
+            var spawned = false
+            repeat(10) {
+                if (isProcessAlive(pkg)) { spawned = true; return@repeat }
+                delay(1000)
+            }
+            if (!spawned) return@launch
             while (isProcessAlive(pkg)) {
                 delay(1000)
             }
@@ -219,6 +240,7 @@ private fun KartridRoot(
     var tab by remember { mutableStateOf(Sys.GBA) }
     var index by remember { mutableStateOf(0) }
     var scanning by remember { mutableStateOf(false) }
+    var artRunning by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf("") }
     var artVersion by remember { mutableStateOf(0) }
     var permOk by remember { mutableStateOf(hasStorage()) }
@@ -230,7 +252,61 @@ private fun KartridRoot(
     var pickSys by remember { mutableStateOf<Sys?>(null) }
     var cacheBytes by remember { mutableStateOf(0L) }
 
-    val tried = remember { HashSet<String>() }
+    val tried = remember { ConcurrentHashMap.newKeySet<String>() }
+
+    /** tulis artState terbaru ke state + disk (dari Main thread) */
+    fun flushArt(r: MutableMap<String, String>) {
+        if (r.isEmpty()) return
+        val upd = games.map { r[it.id]?.let { s -> it.copy(artState = s) } ?: it }
+        games = upd
+        store.saveLibrary(Library(upd, store.library.scannedAt, store.library.folderStamp))
+        r.clear()
+    }
+
+    /** ambil boxart yang belum ada (paralel 8); gagal → ART_FAILED biar nggak retry tiap launch */
+    suspend fun refreshArt() {
+        if (artRunning) return
+        artRunning = true
+        try {
+            val pending = games.filter { it.artState != ART_OK && it.artState != ART_FAILED }
+            val total = pending.size
+            if (total == 0) return
+            // fetch index boxart CDN sekali per sistem → fetch(g) cuma download yang beneran ada
+            note = "indexing art…"
+            for (s in pending.map { it.sys }.distinct()) artCache.ensureIndex(s)
+            val results = ConcurrentHashMap<String, String>()
+            val done = AtomicInteger()
+            val sem = Semaphore(8)
+            note = "art 0/$total"
+            coroutineScope {
+                for (g in pending) {
+                    launch(Dispatchers.IO) {
+                        sem.withPermit {
+                            tried.add(g.id)
+                            // hard timeout per game: fetch yang nge-hang (DNS/socket MTK) nggak
+                            // boleh ngunci worker selamanya → dianggap FAILED, lanjut ke game lain
+                            val ok = runCatching { withTimeout(45_000) { artCache.fetch(g) } }
+                                .getOrDefault(false)
+                            results[g.id] = if (ok) ART_OK else ART_FAILED
+                            val d = done.incrementAndGet()
+                            if (d % 25 == 0) withContext(Dispatchers.Main) {
+                                flushArt(results)
+                                artVersion++
+                                note = "art $d/$total"
+                            }
+                        }
+                    }
+                }
+            }
+            withContext(Dispatchers.Main) {
+                flushArt(results)
+                artVersion++
+                note = ""
+            }
+        } finally {
+            artRunning = false
+        }
+    }
 
     suspend fun runScan() {
         if (scanning) return
@@ -241,37 +317,23 @@ private fun KartridRoot(
                 withContext(Dispatchers.IO) { RomScanner.discover(ctx) }
             }
             note = "scanning…"
-            val found = withContext(Dispatchers.IO) {
-                RomScanner.scan(folders) { n, _ -> note = "scanning… $n" }
+            val out = withContext(Dispatchers.IO) {
+                RomScanner.scan(folders, store.library.games, store.library.folderStamp) { n, _ -> note = "scanning… $n" }
             }
-            val merged = store.mergeScan(found, settings)
-            store.saveLibrary(Library(merged, System.currentTimeMillis()))
+            val merged = store.mergeScan(out.games, settings)
+            store.saveLibrary(Library(merged, System.currentTimeMillis(), out.stamps))
             if (settings.folders.isEmpty() && folders.isNotEmpty()) {
                 settings = settings.copy(folders = folders)
                 store.saveSettings(settings)
             }
             games = merged
             note = ""
-
-            // unduh boxart di background
-            if (settings.autoArt) {
-                withContext(Dispatchers.IO) {
-                    var n = 0
-                    for (g in merged) {
-                        if (g.id in tried) continue
-                        tried.add(g.id)
-                        if (g.artState == ART_OK || g.artState == ART_FAILED) continue
-                        val ok = artCache.fetch(g)
-                        n++
-                        if (n % 6 == 0) withContext(Dispatchers.Main) { artVersion++ }
-                    }
-                }
-                withContext(Dispatchers.Main) { artVersion++ }
-            }
         } finally {
             scanning = false
             note = ""
         }
+        // unduh boxart DI LUAR flag scanning → rak langsung kebuka, art jalan di belakang
+        if (settings.autoArt) refreshArt()
     }
 
     LaunchedEffect(Unit) {
@@ -285,7 +347,7 @@ private fun KartridRoot(
             }
             withContext(Dispatchers.Main) { retroPkg = pkg; installedPkgs = installed; cores = cs; onCores(cs) }
         }
-        if (permOk) runScan()
+        if (permOk && settings.autoScan) runScan()
     }
 
     // index di sini = index RELATIF ke daftar visible per sistem (difilter di bawah).
@@ -314,6 +376,7 @@ private fun KartridRoot(
                 },
                 artVersion = artVersion,
                 scanning = scanning,
+                artRunning = artRunning,
                 scanNote = note,
                 onTab = { tab = it },
                 onIndex = { index = it },
@@ -350,8 +413,13 @@ private fun KartridRoot(
                     scope.launch {
                         withContext(Dispatchers.IO) { artCache.clear() }
                         cacheBytes = 0L
+                        // reset failed art → di-retry
+                        val reset = games.map { if (it.artState == ART_FAILED) it.copy(artState = ART_NEVER) else it }
+                        games = reset
+                        store.saveLibrary(Library(reset, store.library.scannedAt, store.library.folderStamp))
                         artVersion++
-                        toast = "cache boxart dihapus"
+                        toast = "cache boxart dihapus — retrying missing art…"
+                        refreshArt()
                     }
                 },
                 onResetStats = {
@@ -431,7 +499,7 @@ private fun KartridRoot(
     }
     LaunchedEffect(resumeTick) {
         permOk = hasStorage()
-        if (permOk && games.isEmpty() && !scanning) runScan()
+        if (permOk && games.isEmpty() && !scanning && settings.autoScan) runScan()
     }
 
     toast?.let { m ->

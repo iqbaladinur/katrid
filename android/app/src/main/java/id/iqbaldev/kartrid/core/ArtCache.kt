@@ -9,17 +9,25 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLDecoder
 import java.net.URLEncoder
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Boxart dari CDN resmi libretro-thumbnails (PLAN §8).
- * Nama file = konvensi No-Intro, jadi dicoba berurutan beberapa varian region.
+ *
+ * Strategi cepat: fetch INDEX folder (listing HTML) sekali per sistem, cocokin nama
+ * game lokal ke daftar itu, baru download file yang beneran ada. Tanpa ini, tiap game
+ * nyoba 8 URL sekuensial (banyak timeout) → 2167 game = berjam-jam. Dengan index:
+ * ~3 request daftar + download yang cocok doang.
+ *
  * Hasil di-downsample ke <= 256 px lalu disimpan sebagai PNG di filesDir/art.
  */
 class ArtCache(ctx: Context) {
 
     private val dir: File = File(ctx.filesDir, "art").apply { mkdirs() }
     private val mem = LruCache<String, Bitmap>(64)
+    private val indexMem = ConcurrentHashMap<String, List<String>>()
 
     fun fileOf(id: String): File = File(dir, "$id.png")
 
@@ -27,6 +35,7 @@ class ArtCache(ctx: Context) {
 
     fun clear() {
         mem.evictAll()
+        indexMem.clear()
         dir.listFiles()?.forEach { it.delete() }
     }
 
@@ -55,10 +64,59 @@ class ArtCache(ctx: Context) {
         false
     }
 
+    /** pastikan index nama boxart sistem ini ada (dari CDN / cache file, TTL 3 hari) */
+    suspend fun ensureIndex(sys: Sys) = withContext(Dispatchers.IO) {
+        if (indexMem.containsKey(sys.key)) return@withContext
+        val file = File(dir, "idx-${sys.key}.txt")
+        var names: List<String>? =
+            if (file.exists() && System.currentTimeMillis() - file.lastModified() < 3L * 24 * 3600_000L) {
+                file.readLines().filter { it.isNotBlank() }.ifEmpty { null }
+            } else null
+        if (names == null) {
+            // retry sekali; null = gagal total → fallback suffix di candidates()
+            names = fetchIndex(sys) ?: fetchIndex(sys)
+            if (!names.isNullOrEmpty()) runCatching { file.writeText(names.joinToString("\n")) }
+        }
+        if (names != null) indexMem[sys.key] = names
+    }
+
+    private fun indexUrl(sys: Sys): String =
+        "https://thumbnails.libretro.com/${folder(sys)}/Named_Boxarts/"
+
+    /** ambil daftar nama file .png dari listing direktori CDN; null kalau gagal */
+    private fun fetchIndex(sys: Sys): List<String>? = runCatching {
+        val conn = (URL(indexUrl(sys)).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 8_000
+            readTimeout = 15_000
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", "Kartrid/0.1 (Android)")
+        }
+        try {
+            if (conn.responseCode != 200) return@runCatching null
+            val html = conn.inputStream.bufferedReader().readText()
+            Regex("""href="([^"]+\.png)"""").findAll(html)
+                .map { URLDecoder.decode(it.groupValues[1], "UTF-8") }
+                .toList()
+        } finally {
+            conn.disconnect()
+        }
+    }.getOrElse { null }
+
     private fun folder(sys: Sys): String = when (sys) {
         Sys.GB -> "Nintendo - Game Boy"
         Sys.GBC -> "Nintendo - Game Boy Color"
         Sys.GBA -> "Nintendo - Game Boy Advance"
+    }
+
+    /** bagian judul (sebelum tag region pertama) — dipakai pencocokan index */
+    private fun titlePart(name: String): String =
+        name.substringBefore(" (").trim().lowercase()
+
+    /** ranking region: USA/World paling sering dipakai libretro */
+    private fun regionRank(name: String): Int {
+        val inner = name.substringAfter("(", "").substringBefore(")").trim().lowercase()
+        val i = REGION_PREF.indexOf(inner)
+        return if (i < 0) REGION_PREF.size else i
     }
 
     private fun candidates(g: Game): List<String> {
@@ -66,7 +124,19 @@ class ArtCache(ctx: Context) {
         val rawName = File(g.path).nameWithoutExtension
         val base = RomScanner.baseName(rawName)
         if (base.isBlank()) return emptyList()
-        val root = "https://thumbnails.libretro.com/${folder(sys)}/Named_Boxarts/"
+        val root = indexUrl(sys)
+        val idx = indexMem[sys.key]
+
+        if (idx != null && idx.isNotEmpty()) {
+            // cocokin ke index CDN → 0-1 URL beneran ada (gak nembak 8 URL buta)
+            val key = base.lowercase()
+            val best = idx.filter { titlePart(it) == key }
+                .minByOrNull { regionRank(it) }
+                ?: return emptyList()
+            return listOf(root + enc(best))
+        }
+
+        // fallback (index gagal ke-fetch): coba varian region umum
         val suffixes = listOf(
             " (USA, Europe)", " (World)", " (USA)", " (Europe)", " (Japan)",
             " (USA, Australia)", " (En,Ja)", "",
@@ -79,8 +149,8 @@ class ArtCache(ctx: Context) {
 
     private fun tryDownload(url: String, targetPx: Int): Bitmap? = runCatching {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 12_000
-            readTimeout = 15_000
+            connectTimeout = 8_000
+            readTimeout = 20_000
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", "Kartrid/0.1 (Android)")
         }
@@ -125,4 +195,10 @@ class ArtCache(ctx: Context) {
         }
         BitmapFactory.decodeFile(f.absolutePath, opts)
     }.getOrNull()
+
+    companion object {
+        private val REGION_PREF = listOf(
+            "(usa, europe)", "(world)", "(usa)", "(europe)", "(japan)", "(usa, australia)", "(en,ja)", "",
+        )
+    }
 }

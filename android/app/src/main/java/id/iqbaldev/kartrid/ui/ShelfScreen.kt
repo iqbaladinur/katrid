@@ -102,6 +102,7 @@ fun ShelfScreen(
     artOf: suspend (Game) -> ImageBitmap?,
     artVersion: Int,
     scanning: Boolean,
+    artRunning: Boolean,
     scanNote: String,
     onTab: (Sys) -> Unit,
     onIndex: (Int) -> Unit,
@@ -315,9 +316,9 @@ fun ShelfScreen(
             }
             Box(Modifier.weight(1f))
 
-            if (scanning) {
+            if (scanning || artRunning) {
                 Text(
-                    text = scanNote.ifBlank { "scanning…" },
+                    text = scanNote.ifBlank { if (artRunning) "fetching boxart…" else "scanning…" },
                     color = T.mutedFg,
                     fontFamily = MONO,
                     fontSize = 11.sp,

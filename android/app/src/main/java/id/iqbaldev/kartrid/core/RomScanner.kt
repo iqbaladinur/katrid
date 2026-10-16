@@ -1,22 +1,37 @@
 package id.iqbaldev.kartrid.core
 
+import android.content.Context
 import android.os.Environment
 import java.io.File
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 /**
- * Scan ROM: .gb/.gbc/.gba dari folder yang dikonfigurasi.
+ * Scan ROM: .gb/.gbc/.gba + arsip .zip/.7z dari folder yang dikonfigurasi.
+ * - Incremental: folder yang mtime-nya nggak berubah sejak scan terakhir di-skip
+ *   (hasil lama dipakai lagi) — scan tiap launch jadi cepet.
+ * - Paralel: WORKERS walker jalan barengan di folder beda.
  * Jalan di Dispatchers.IO dari pemanggil; progress lewat callback.
  */
 object RomScanner {
 
     private const val MAX_DEPTH = 4
+    private const val WORKERS = 4
+
+    /** hasil scan + stamp mtime tiap folder (dipakai incremental di run berikutnya) */
+    data class ScanOut(val games: List<Game>, val stamps: Map<String, Long>)
 
     private val HINT = Regex("(?i)rom|game|gb|gbc|gba|retro|emul|kartrid|nintendo|backup")
     private val SKIP = Regex("(?i)^Android$|^\\.|thumbnails|DCIM|Movies|Music|Pictures|WhatsApp|Telegram|MIUI|Download$")
 
     /** Cari sendiri folder yang isinya ROM, biar user nggak perlu nunjuk manual. */
-    fun discover(ctx: android.content.Context): Map<String, List<String>> {
+    fun discover(ctx: Context): Map<String, List<String>> {
         val found = HashMap<String, MutableList<String>>()
         for (vol in volumeRoots(ctx)) {
             val root = File(vol)
@@ -31,7 +46,7 @@ object RomScanner {
                 val children = runCatching { d.listFiles() }.getOrNull() ?: continue
                 val exts = children.filter { it.isFile }.mapTo(HashSet()) { it.extension.lowercase() }
                 for (s in Sys.entries) {
-                    if (exts.contains(s.ext)) found.getOrPut(s.key) { mutableListOf() }.add(d.absolutePath)
+                    if (exts.any { s.accepts(it) }) found.getOrPut(s.key) { mutableListOf() }.add(d.absolutePath)
                 }
                 if (depth < 3) {
                     children.forEach {
@@ -46,7 +61,7 @@ object RomScanner {
     }
 
     /** akar tiap volume storage (internal + SD card) dari daftar dir app */
-    private fun volumeRoots(ctx: android.content.Context): List<String> {
+    private fun volumeRoots(ctx: Context): List<String> {
         val out = LinkedHashSet<String>()
         runCatching {
             ctx.getExternalFilesDirs(null).filterNotNull().forEach { f ->
@@ -83,30 +98,67 @@ object RomScanner {
 
     suspend fun scan(
         folders: Map<String, List<String>>,
+        prior: List<Game> = emptyList(),
+        stamps: Map<String, Long> = emptyMap(),
         onProgress: (Int, String) -> Unit = { _, _ -> },
-    ): List<Game> {
-        val out = ArrayList<Game>()
-        var found = 0
-        for ((sysKey, paths) in folders) {
-            val sys = Sys.of(sysKey)
-            for (p in paths) {
-                val root = File(p)
-                if (!root.isDirectory || !root.canRead()) continue
-                root.walkTopDown()
-                    .maxDepth(MAX_DEPTH)
-                    .onFail { _, _ -> }
-                    .forEach { f ->
-                        // skip junk: dotfile mac (._*), metadata (.*), file nyangkut
-                        if (f.isFile && !f.name.startsWith(".") && f.extension.equals(sys.ext, ignoreCase = true)) {
-                            found++
-                            out.add(make(sys, f))
-                            if (found % 12 == 0) onProgress(found, f.absolutePath)
+    ): ScanOut {
+        val results = ConcurrentHashMap<String, List<Game>>()
+        val freshStamps = ConcurrentHashMap<String, Long>()
+        val sem = Semaphore(WORKERS)
+        val found = AtomicInteger()
+
+        coroutineScope {
+            for ((sysKey, paths) in folders) {
+                val sys = Sys.of(sysKey)
+                for (p in paths) {
+                    launch(Dispatchers.IO) {
+                        sem.withPermit {
+                            val key = "$sysKey|$p"
+                            val root = File(p)
+                            if (!root.isDirectory || !root.canRead()) return@withPermit
+                            val stamp = runCatching { root.lastModified() }.getOrDefault(0L)
+                            if (stamps[key] == stamp && stamp != 0L) {
+                                // folder nggak berubah sejak scan terakhir → pakai hasil lama
+                                results[key] = prior.filter { it.system == sys.key && it.path.startsWith(p) }
+                                freshStamps[key] = stamp
+                                return@withPermit
+                            }
+                            val files = walkFiles(root) { f ->
+                                !f.name.startsWith(".") && sys.accepts(f.extension)
+                            }
+                            results[key] = files.map { make(sys, it) }
+                            freshStamps[key] = stamp
+                            found.addAndGet(files.size)
+                            onProgress(found.get(), "")
                         }
                     }
+                }
             }
         }
-        onProgress(found, "")
-        return out.sortedWith(compareBy({ it.system }, { it.title.lowercase() }))
+
+        val games = results.values.flatten()
+            .sortedWith(compareBy({ it.system }, { it.title.lowercase() }))
+        return ScanOut(games, freshStamps)
+    }
+
+    /** walk manual sampai MAX_DEPTH; lebih ringan dari FileTreeWalk (nggak bikin iterator per file) */
+    private fun walkFiles(root: File, accept: (File) -> Boolean): List<File> {
+        val out = ArrayList<File>()
+        val stack = ArrayDeque<Pair<File, Int>>()
+        stack.addLast(root to 0)
+        while (stack.isNotEmpty()) {
+            val (d, depth) = stack.removeLast()
+            if (depth > MAX_DEPTH) continue
+            val children = runCatching { d.listFiles() }.getOrNull() ?: continue
+            for (f in children) {
+                if (f.isFile) {
+                    if (accept(f)) out.add(f)
+                } else if (f.isDirectory && !f.name.startsWith(".") && depth < MAX_DEPTH) {
+                    stack.addLast(f to depth + 1)
+                }
+            }
+        }
+        return out
     }
 
     private fun make(sys: Sys, f: File): Game {

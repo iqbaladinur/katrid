@@ -125,7 +125,7 @@ fun SettingsScreen(
             add(
                 Row.Action(
                     name = "Rescan",
-                    sub = "${counts.values.sum()} .gb/.gbc/.gba files found",
+                    sub = "${counts.values.sum()} roms (.gb/.gbc/.gba/.zip)",
                     label = "SCAN",
                     run = onRescan,
                 ),

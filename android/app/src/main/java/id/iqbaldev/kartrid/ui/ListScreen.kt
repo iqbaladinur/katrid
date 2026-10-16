@@ -185,6 +185,7 @@ fun ListScreen(
                                 .size(46f.tdp, 30f.tdp)
                                 .border(1.5.dp, T.black)
                                 .background(shellColor(g.sys.shell, on)),
+                            contentAlignment = Alignment.Center,
                         ) {
                             val bmp = art
                             if (bmp != null) {
@@ -194,6 +195,13 @@ fun ListScreen(
                                     modifier = Modifier.fillMaxSize().padding(3.dp),
                                     contentScale = ContentScale.Crop,
                                     alpha = if (on) 1f else 0.72f,
+                                )
+                            } else {
+                                Text(
+                                    text = g.sys.label,
+                                    color = T.fg.copy(alpha = if (on) 0.55f else 0.3f),
+                                    fontFamily = MONO,
+                                    fontSize = 8.sp,
                                 )
                             }
                         }
