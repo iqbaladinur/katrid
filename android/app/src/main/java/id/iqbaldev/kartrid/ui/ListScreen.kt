@@ -35,6 +35,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.KeyEventType
@@ -70,6 +71,7 @@ fun ListScreen(
     onLaunch: (Game) -> Unit,
     onClose: () -> Unit,
     onTab: (Tab) -> Unit,
+    onFav: (Game) -> Unit,
     sfx: Sfx,
 ) {
     var sel by remember { mutableStateOf(0) }
@@ -136,7 +138,11 @@ fun ListScreen(
                         sfx.tick()
                         true
                     }
-                    AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { kb?.hide(); onClose(); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_Y -> {
+                            list.getOrNull(selSafe)?.let { onFav(it) }
+                            sfx.tick(); true
+                        }
+                        AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { kb?.hide(); onClose(); sfx.tick(); true }
                     else -> false
                 }
             },
@@ -256,6 +262,10 @@ fun ListScreen(
                             }
                         }
                         Box(Modifier.width(12.dp))
+                        if (g.fav) {
+                            Text("★", color = Color(0xFFFFC94D), fontFamily = MONO, fontSize = 15.sp)
+                            Box(Modifier.width(8.dp))
+                        }
                         Column(Modifier.weight(1f)) {
                             Text(
                                 text = g.title,
@@ -322,6 +332,7 @@ fun ListScreen(
                 ) {
                     HintItem("A", "play")
                     HintItem("X", "system")
+                    HintItem("Y", "favorite")
                     HintItem("B", "back")
                 }
             }

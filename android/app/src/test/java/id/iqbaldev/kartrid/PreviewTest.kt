@@ -85,6 +85,7 @@ class PreviewTest {
                     artRunning = false,
                     scanNote = "",
                     onTab = {}, onIndex = {}, onLaunch = {}, onFav = {}, onSettings = {}, onSearch = {},
+                    onSetArt = {}, onClearArt = {},
                     sfx = Sfx(ctx),
                 )
             }
@@ -230,7 +231,7 @@ class PreviewTest {
                     games = games(),
                     artOf = { art("gba_Pokemon_-_Emerald_Version__USA__Europe_.png") },
                     artVersion = 0,
-                    onLaunch = {}, onClose = {}, onTab = {},
+                    onLaunch = {}, onClose = {}, onTab = {}, onFav = {},
                     sfx = Sfx(ctx),
                 )
             }

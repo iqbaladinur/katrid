@@ -115,10 +115,14 @@ fun ShelfScreen(
     onFav: (Game) -> Unit,
     onSettings: () -> Unit,
     onSearch: () -> Unit,
+    onSetArt: (Game) -> Unit,
+    onClearArt: (Game) -> Unit,
     sfx: Sfx,
 ) {
     val scope = rememberCoroutineScope()
     val current = games.getOrNull(index)
+    var cartMenu by remember { mutableStateOf(false) }
+    var cartMenuSel by remember { mutableStateOf(0) }
 
     // posisi carousel dianimasikan sebagai indeks pecahan
     val f by animateFloatAsState(
@@ -180,7 +184,26 @@ fun ShelfScreen(
             .focusable()
             .onPreviewKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                when (ev.nativeKeyEvent.keyCode) {
+                if (cartMenu) {
+                    when (ev.nativeKeyEvent.keyCode) {
+                        AKey.KEYCODE_DPAD_UP -> { cartMenuSel = (cartMenuSel - 1).coerceAtLeast(0); sfx.tick(); true }
+                        AKey.KEYCODE_DPAD_DOWN -> { cartMenuSel = (cartMenuSel + 1).coerceAtMost(2); sfx.tick(); true }
+                        AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> {
+                            val g = current
+                            if (g != null) {
+                                when (cartMenuSel) {
+                                    0 -> onSetArt(g)
+                                    1 -> onClearArt(g)
+                                    else -> onFav(g)
+                                }
+                            }
+                            cartMenu = false
+                            sfx.tick(); true
+                        }
+                        AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { cartMenu = false; sfx.tick(); true }
+                        else -> true
+                    }
+                } else when (ev.nativeKeyEvent.keyCode) {
                     AKey.KEYCODE_DPAD_LEFT -> { move(-1); sfx.tick(); true }
                     AKey.KEYCODE_DPAD_RIGHT -> { move(1); sfx.tick(); true }
                     AKey.KEYCODE_BUTTON_L1, AKey.KEYCODE_BUTTON_L2 -> { val i = Tab.list.indexOf(tab); onTab(Tab.list[(i + Tab.list.size - 1) % Tab.list.size]); sfx.tick(); true }
@@ -188,6 +211,7 @@ fun ShelfScreen(
                     AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> { play(); true }
                     AKey.KEYCODE_BUTTON_X -> { current?.let { onFav(it); sfx.tick() }; true }
                     AKey.KEYCODE_BUTTON_Y -> { onSearch(); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_SELECT -> { cartMenu = true; cartMenuSel = 0; sfx.tick(); true }
                     AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { onSettings(); sfx.tick(); true }
                     else -> false
                 }
@@ -411,6 +435,41 @@ fun ShelfScreen(
                 HintItem("Y", "search")
                 ListSpacer()
                 HintItem("B", "settings")
+                ListSpacer()
+                HintItem("SEL", "menu")
+            }
+        }
+
+        // ---- menu aksi kartrid (SELECT): set/remove boxart, favorite ----
+        if (cartMenu) {
+            val g = current
+            val opts = listOf("Set custom boxart", "Remove custom boxart", if (g?.fav == true) "Unfavorite" else "Favorite")
+            Box(
+                Modifier
+                    .offset(x = (CENTER_X - 230f).dp, y = 322f.dp)
+                    .size(460.dp, 190.dp)
+                    .background(T.bg.copy(alpha = 0.92f))
+                    .border(1.5.dp, T.hairline),
+            ) {
+                Column(Modifier.fillMaxSize().padding(16.dp)) {
+                    Text((g?.title ?: "").uppercase(), color = T.mutedFg, fontFamily = MONO, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Box(Modifier.height(8.dp))
+                    for ((i, o) in opts.withIndex()) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(42.dp)
+                                .drawBehind { if (i == cartMenuSel) drawRect(T.muted) }
+                                .clickable { cartMenuSel = i; sfx.tick() }
+                                .padding(horizontal = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(if (i == cartMenuSel) "»" else " ", color = T.lime, fontFamily = MONO, fontSize = 12.sp)
+                            Box(Modifier.width(8.dp))
+                            Text(o, color = if (i == cartMenuSel) T.lime else T.fg, fontFamily = MONO, fontSize = 13.sp)
+                        }
+                    }
+                }
             }
         }
 

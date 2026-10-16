@@ -461,6 +461,11 @@ private fun KartridRoot(
                     }
                 },
                 onSearch = { screen = 2 },
+                onSetArt = { g ->
+                    customArtTarget = g
+                    artPicker.launch("image/*")
+                },
+                onClearArt = { clearCustomArt(it) },
                 sfx = sfx,
             )
         } else if (screen == 1) {
@@ -528,6 +533,11 @@ private fun KartridRoot(
                     }
                 },
                 onTab = { switchTab(it) },
+                onFav = { g ->
+                    val updated = games.map { if (it.id == g.id) it.copy(fav = !it.fav) else it }
+                    games = updated
+                    store.saveLibrary(Library(updated, store.library.scannedAt, store.library.folderStamp))
+                },
                 sfx = sfx,
             )
         }
