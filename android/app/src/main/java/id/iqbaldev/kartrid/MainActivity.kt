@@ -252,8 +252,6 @@ private fun KartridRoot(
     var pickSys by remember { mutableStateOf<Sys?>(null) }
     var cacheBytes by remember { mutableStateOf(0L) }
 
-    val tried = remember { ConcurrentHashMap.newKeySet<String>() }
-
     /** tulis artState terbaru ke state + disk (dari Main thread) */
     fun flushArt(r: MutableMap<String, String>) {
         if (r.isEmpty()) return
@@ -282,7 +280,6 @@ private fun KartridRoot(
                 for (g in pending) {
                     launch(Dispatchers.IO) {
                         sem.withPermit {
-                            tried.add(g.id)
                             // hard timeout per game: fetch yang nge-hang (DNS/socket MTK) nggak
                             // boleh ngunci worker selamanya → dianggap FAILED, lanjut ke game lain
                             val ok = runCatching { withTimeout(45_000) { artCache.fetch(g) } }
@@ -372,7 +369,8 @@ private fun KartridRoot(
                 index = index.coerceIn(0, (visible.size - 1).coerceAtLeast(0)),
                 focusRequester = focusRequester,
                 artOf = { g ->
-                    if (tried.isEmpty() || g.id in tried) artCache.get(g)?.asImageBitmap() else null
+                    // nggak ada gate: artCache.get udah null kalau art-nya emang nggak ada
+                    artCache.get(g)?.asImageBitmap()
                 },
                 artVersion = artVersion,
                 scanning = scanning,
