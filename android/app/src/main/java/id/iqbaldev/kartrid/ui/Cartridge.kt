@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -433,29 +434,37 @@ private fun CartridgeSwitch(
                 maxLines = 1,
             )
         }
-        // area art: frame + shadow biar cover 'nyatu' sama body (bukan kotak gelap)
+        // area art SQUARE (rasio asli boxart libretro ~1:1) — nol letterbox
+        val artSize = w * 0.82f
         Box(
             Modifier
                 .offset(y = artY.dp)
-                .padding(horizontal = 16.dp)
                 .fillMaxWidth()
-                .height(artH.dp)
-                .shadow(5.dp, RoundedCornerShape(12.dp), clip = false, ambientColor = Color(0x66000000), spotColor = Color(0x33000000))
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFF3F2EC))
-                .border(1.2.dp, Color(0x40000000), RoundedCornerShape(12.dp))
-                .padding(3.dp),
+                .padding(horizontal = 16.dp)
+                .height(artH.dp),
+            contentAlignment = Alignment.Center,
         ) {
             if (art != null) {
-                Image(
-                    bitmap = art,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(9.dp)),
-                    contentScale = ContentScale.Fit,
-                    colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
-                )
+                Box(
+                    Modifier
+                        .size(artSize.dp)
+                        .aspectRatio(art.width.toFloat() / art.height.toFloat())
+                        .shadow(5.dp, RoundedCornerShape(10.dp), clip = false, ambientColor = Color(0x66000000), spotColor = Color(0x33000000))
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFEFEDE6))
+                        .border(1.2.dp, Color(0x40000000), RoundedCornerShape(10.dp))
+                        .padding(2.dp),
+                ) {
+                    Image(
+                        bitmap = art,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Fit,
+                        colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
+                    )
+                }
             } else {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
