@@ -23,6 +23,13 @@ class ArtCache(ctx: Context) {
 
     fun fileOf(id: String): File = File(dir, "$id.png")
 
+    fun cacheSize(): Long = dir.listFiles()?.sumOf { it.length() } ?: 0L
+
+    fun clear() {
+        mem.evictAll()
+        dir.listFiles()?.forEach { it.delete() }
+    }
+
     /** bitmap dari disk/memori (null kalau belum ada) */
     fun get(g: Game): Bitmap? {
         mem.get(g.id)?.let { return it }

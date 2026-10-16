@@ -107,6 +107,8 @@ fun ShelfScreen(
     onIndex: (Int) -> Unit,
     onLaunch: (Game) -> Unit,
     onFav: (Game) -> Unit,
+    onSettings: () -> Unit,
+    onSearch: () -> Unit,
     sfx: Sfx,
 ) {
     val scope = rememberCoroutineScope()
@@ -165,8 +167,6 @@ fun ShelfScreen(
         scope.launch { play(g) }
     }
 
-    var showInfo by remember { mutableStateOf(false) }
-
     Box(
         Modifier
             .fillMaxSize()
@@ -181,8 +181,8 @@ fun ShelfScreen(
                     AKey.KEYCODE_BUTTON_R1 -> { move(5); sfx.tick(); true }
                     AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> { play(); true }
                     AKey.KEYCODE_BUTTON_X -> { current?.let { onFav(it); sfx.tick() }; true }
-                    AKey.KEYCODE_BUTTON_Y -> { sfx.tick(); true }
-                    AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { showInfo = !showInfo; sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_Y -> { onSearch(); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { onSettings(); sfx.tick(); true }
                     else -> false
                 }
             },
@@ -312,7 +312,7 @@ fun ShelfScreen(
                     .size(26.dp)
                     .padding(bottom = 6.dp)
                     .border(1.5.dp, T.hairline)
-                    .clickable { showInfo = true; sfx.tick() }
+                    .clickable { onSettings(); sfx.tick() }
                     .drawBehind {
                         val x0 = size.width * 0.27f
                         val x1 = size.width * 0.73f
@@ -394,20 +394,11 @@ fun ShelfScreen(
 
         // ---- empty state ----
         if (games.isEmpty() && !scanning) {
-            EmptyPanel(onRescan = { showInfo = true })
+            EmptyPanel()
         }
 
         // ---- overlay loading setelah kartrid masuk ----
         loading?.let { LoadOverlay(it) }
-
-        if (showInfo) {
-            InfoOverlay(
-                tab = tab,
-                games = games,
-                counts = counts,
-                onClose = { showInfo = false },
-            )
-        }
     }
 
     LaunchedEffect(games.size) {
@@ -431,7 +422,7 @@ private fun sizeText(bytes: Long): String = when {
 }
 
 @Composable
-private fun HintItem(key: String, label: String) {
+internal fun HintItem(key: String, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
@@ -452,7 +443,7 @@ private fun ListSpacer() {
 }
 
 @Composable
-private fun EmptyPanel(onRescan: () -> Unit) {
+private fun EmptyPanel() {
     Box(
         Modifier
             .offset(x = (CENTER_X - 220f).dp, y = 300.dp)
@@ -465,7 +456,7 @@ private fun EmptyPanel(onRescan: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "Belum ada ROM.\nTekan B buat lihat folder yang kepindai.",
+            text = "Belum ada ROM.\nTekan B (atau gear) buat atur folder ROM.",
             color = T.mutedFg,
             fontFamily = MONO,
             fontSize = 12.sp,
@@ -510,47 +501,4 @@ private fun LoadOverlay(g: Game) {
     }
 }
 
-@Composable
-private fun InfoOverlay(
-    tab: Sys,
-    games: List<Game>,
-    counts: Map<String, Int>,
-    onClose: () -> Unit,
-) {
-    Box(Modifier.fillMaxSize().background(T.bg.copy(alpha = 0.9f)))
-    Column(
-        Modifier
-            .offset(x = 120.dp, y = 90.dp)
-            .size(720.dp, 460.dp)
-            .background(T.surface)
-            .border(1.5.dp, T.hairline)
-            .padding(26.dp),
-    ) {
-        Text("DIAGNOSTIK", color = T.lime, fontFamily = MONO, fontSize = 13.sp, letterSpacing = 1.4.sp)
-        Box(Modifier.height(14.dp))
-        for (s in Sys.order) {
-            Text(
-                text = "${s.label}  ${counts[s.key] ?: 0} file",
-                color = T.fg,
-                fontFamily = MONO,
-                fontSize = 11.5.sp,
-            )
-        }
-        Box(Modifier.height(14.dp))
-        Text(
-            text = "TAB AKTIF: ${tab.label} · ${games.size} game terlihat",
-            color = T.mutedFg,
-            fontFamily = MONO,
-            fontSize = 11.5.sp,
-        )
-        Box(Modifier.weight(1f))
-        Box(
-            Modifier
-                .border(1.5.dp, T.hairline)
-                .clickable { onClose() }
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-        ) {
-            Text("TUTUP", color = T.fg, fontFamily = MONO, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
-        }
-    }
-}
+

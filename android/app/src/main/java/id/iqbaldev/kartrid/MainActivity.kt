@@ -54,9 +54,12 @@ import id.iqbaldev.kartrid.core.RomScanner
 import id.iqbaldev.kartrid.core.Store
 import id.iqbaldev.kartrid.core.Sys
 import id.iqbaldev.kartrid.ui.DISPLAY
+import id.iqbaldev.kartrid.ui.FolderPicker
+import id.iqbaldev.kartrid.ui.ListScreen
 import id.iqbaldev.kartrid.ui.MONO
 import id.iqbaldev.kartrid.ui.MockCanvas
 import id.iqbaldev.kartrid.ui.SANS
+import id.iqbaldev.kartrid.ui.SettingsScreen
 import id.iqbaldev.kartrid.ui.Sfx
 import id.iqbaldev.kartrid.ui.ShelfScreen
 import id.iqbaldev.kartrid.ui.T
@@ -71,6 +74,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var artCache: ArtCache
     private lateinit var sfx: Sfx
     private var justLaunched = false
+    private var detectedCores: List<String> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,6 +93,7 @@ class MainActivity : ComponentActivity() {
                     hasStorage = { hasStorage() },
                     requestStorage = { requestStoragePermission() },
                     launchGame = { g -> launchGame(g) },
+                    onCores = { detectedCores = it },
                 )
             }
         }
@@ -137,6 +142,7 @@ class MainActivity : ComponentActivity() {
         val pkg = RetroArch.pickPackage(this, store.settings.retroPkg)
             ?: return "RetroArch belum terdeteksi di device ini"
         val core = store.settings.cores[g.system]?.takeIf { it.isNotBlank() }
+            ?: detectedCores.firstOrNull { it in g.sys.cores }
             ?: g.sys.cores.first()
         val cfg = store.settings.cfgPath?.takeIf { it.isNotBlank() } ?: RetroArch.defaultCfg(pkg)
         val i = RetroArch.launchIntent(
@@ -164,6 +170,7 @@ private fun KartridRoot(
     hasStorage: () -> Boolean,
     requestStorage: () -> Unit,
     launchGame: (Game) -> String?,
+    onCores: (List<String>) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
@@ -179,6 +186,9 @@ private fun KartridRoot(
     var toast by remember { mutableStateOf<String?>(null) }
     var cores by remember { mutableStateOf<List<String>>(emptyList()) }
     var retroPkg by remember { mutableStateOf<String?>(null) }
+    var screen by remember { mutableStateOf(0) }
+    var pickSys by remember { mutableStateOf<Sys?>(null) }
+    var cacheBytes by remember { mutableStateOf(0L) }
 
     val tried = remember { HashSet<String>() }
 
@@ -228,7 +238,7 @@ private fun KartridRoot(
         withContext(Dispatchers.IO) {
             val pkg = RetroArch.pickPackage(ctx, store.settings.retroPkg)
             val cs = if (pkg != null) RetroArch.queryCores(ctx) else emptyList()
-            withContext(Dispatchers.Main) { retroPkg = pkg; cores = cs }
+            withContext(Dispatchers.Main) { retroPkg = pkg; cores = cs; onCores(cs) }
         }
         if (permOk) runScan()
     }
@@ -246,31 +256,94 @@ private fun KartridRoot(
     }
 
     Box(Modifier.fillMaxWidth()) {
-        ShelfScreen(
-            tab = tab,
-            counts = counts,
-            games = visible,
-            index = index.coerceIn(0, (visible.size - 1).coerceAtLeast(0)),
-            focusRequester = focusRequester,
-            artOf = { g ->
-                if (tried.isEmpty() || g.id in tried) artCache.get(g)?.asImageBitmap() else null
-            },
-            artVersion = artVersion,
-            scanning = scanning,
-            scanNote = note,
-            onTab = { tab = it },
-            onIndex = { index = it },
-            onLaunch = { g ->
-                val err = launchGame(g)
-                if (err != null) toast = err
-            },
-            onFav = { g ->
-                val updated = games.map { if (it.id == g.id) it.copy(fav = !it.fav) else it }
-                games = updated
-                store.saveLibrary(Library(updated, store.library.scannedAt))
-            },
-            sfx = sfx,
-        )
+        if (screen == 0) {
+            ShelfScreen(
+                tab = tab,
+                counts = counts,
+                games = visible,
+                index = index.coerceIn(0, (visible.size - 1).coerceAtLeast(0)),
+                focusRequester = focusRequester,
+                artOf = { g ->
+                    if (tried.isEmpty() || g.id in tried) artCache.get(g)?.asImageBitmap() else null
+                },
+                artVersion = artVersion,
+                scanning = scanning,
+                scanNote = note,
+                onTab = { tab = it },
+                onIndex = { index = it },
+                onLaunch = { g ->
+                    val err = launchGame(g)
+                    if (err != null) toast = err
+                },
+                onFav = { g ->
+                    val updated = games.map { if (it.id == g.id) it.copy(fav = !it.fav) else it }
+                    games = updated
+                    store.saveLibrary(Library(updated, store.library.scannedAt))
+                },
+                onSettings = {
+                    screen = 1
+                    scope.launch {
+                        cacheBytes = withContext(Dispatchers.IO) { artCache.cacheSize() }
+                    }
+                },
+                onSearch = { screen = 2 },
+                sfx = sfx,
+            )
+        } else if (screen == 1) {
+            SettingsScreen(
+                settings = settings,
+                counts = counts,
+                scannedFolders = settings.folders,
+                retroPkg = retroPkg,
+                cores = cores,
+                cacheBytes = cacheBytes,
+                onUpdate = { s -> settings = s; store.saveSettings(s) },
+                onRescan = { scope.launch { runScan() } },
+                onClearCache = {
+                    scope.launch {
+                        withContext(Dispatchers.IO) { artCache.clear() }
+                        cacheBytes = 0L
+                        artVersion++
+                        toast = "cache boxart dihapus"
+                    }
+                },
+                onResetStats = {
+                    val updated = games.map { it.copy(plays = 0, totalMs = 0L, lastPlayedAt = null) }
+                    games = updated
+                    store.saveLibrary(Library(updated, store.library.scannedAt))
+                    toast = "statistik main direset"
+                },
+                onFolderPick = { s -> pickSys = s },
+                onClose = {
+                    screen = 0
+                    scope.launch {
+                        delay(120)
+                        runCatching { focusRequester.requestFocus() }
+                    }
+                },
+                sfx = sfx,
+            )
+        } else {
+            ListScreen(
+                tab = tab,
+                games = games.filter { !it.hidden },
+                artOf = { g -> artCache.get(g)?.asImageBitmap() },
+                artVersion = artVersion,
+                onLaunch = { g ->
+                    val err = launchGame(g)
+                    if (err != null) toast = err
+                },
+                onClose = {
+                    screen = 0
+                    scope.launch {
+                        delay(120)
+                        runCatching { focusRequester.requestFocus() }
+                    }
+                },
+                onTab = { tab = it },
+                sfx = sfx,
+            )
+        }
 
         if (!permOk) {
             PermPanel(
@@ -278,6 +351,23 @@ private fun KartridRoot(
                     requestStorage()
                 },
                 onSkip = { permOk = true },
+            )
+        }
+
+        pickSys?.let { s ->
+            FolderPicker(
+                sys = s,
+                initial = settings.folders[s.key]?.firstOrNull(),
+                onPick = { path ->
+                    val ns = settings.copy(folders = settings.folders + (s.key to listOf(path)))
+                    settings = ns
+                    store.saveSettings(ns)
+                    pickSys = null
+                    toast = "folder ${s.label}: $path"
+                    scope.launch { runScan() }
+                },
+                onClose = { pickSys = null },
+                sfx = sfx,
             )
         }
     }
