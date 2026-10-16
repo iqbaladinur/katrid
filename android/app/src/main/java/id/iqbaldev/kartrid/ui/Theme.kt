@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import id.iqbaldev.kartrid.R
 
@@ -49,6 +50,17 @@ val MONO = FontFamily(
 
 const val BASE_W = 960f
 const val BASE_H = 640f
+
+/**
+ * Layar KPA ngerepot density 240 (mdpi) → 1 dp = 1,5 px.
+ * Kanvas desain digambar 1:1 px, jadi elemen interaktif yang di-ukur pakai dp
+ * konsekuennya 1,5× lebih kecil dari normal. Pengali ini narik balik ke ukuran
+ * sentuh wajar (minimal ~43-48dp).
+ */
+const val TOUCH = 1.5f
+
+/** nilai desain (px mockup) → dp sentuh yang dibesarkan biar ≥ 43-48dp */
+val Float.tdp: Dp get() = (this * TOUCH).dp
 
 /**
  * Kanvas desain 960x640 px (layar KONKR Pocket Advance).

@@ -309,7 +309,7 @@ fun ShelfScreen(
             }
             Box(
                 Modifier
-                    .size(26.dp)
+                    .size(26f.tdp)
                     .padding(bottom = 6.dp)
                     .border(1.5.dp, T.hairline)
                     .clickable { onSettings(); sfx.tick() }
@@ -428,12 +428,12 @@ internal fun HintItem(key: String, label: String) {
             Modifier
                 .border(1.5.dp, T.hairline)
                 .background(T.surface)
-                .padding(horizontal = 7.dp, vertical = 2.dp),
+                .padding(horizontal = 10f.tdp, vertical = 5f.tdp),
         ) {
-            Text(key, color = T.fg, fontFamily = MONO, fontSize = 11.sp)
+            Text(key, color = T.fg, fontFamily = MONO, fontSize = 12.sp)
         }
         Box(Modifier.width(6.dp))
-        Text(label, color = T.mutedFg, fontFamily = MONO, fontSize = 11.sp)
+        Text(label, color = T.mutedFg, fontFamily = MONO, fontSize = 12.sp)
     }
 }
 

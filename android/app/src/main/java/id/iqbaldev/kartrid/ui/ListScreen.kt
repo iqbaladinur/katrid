@@ -45,8 +45,8 @@ import id.iqbaldev.kartrid.core.Sys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private const val ROWS = 11
-private const val ROW_H = 34f
+private const val ROWS = 8
+private const val ROW_H = 66f
 
 /**
  * S3 Cari & Daftar — versi D-pad: daftar berjendela + rail A–Z.
@@ -182,7 +182,7 @@ fun ListScreen(
                         Box(Modifier.padding(start = 8.dp))
                         Box(
                             Modifier
-                                .size(40.dp, 28.dp)
+                                .size(40f.tdp, 28f.tdp)
                                 .border(1.5.dp, T.black)
                                 .background(shellColor(g.sys.shell, on)),
                         ) {
@@ -237,9 +237,9 @@ fun ListScreen(
                     text = c.toString(),
                     color = if (c == cur) T.lime else T.mutedFg,
                     fontFamily = MONO,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     modifier = Modifier
-                        .padding(vertical = 1.dp)
+                        .padding(vertical = 3.dp)
                         .clickable { jump(c) },
                 )
             }

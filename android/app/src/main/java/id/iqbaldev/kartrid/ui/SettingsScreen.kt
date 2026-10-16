@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,6 +37,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import id.iqbaldev.kartrid.core.RetroArch
@@ -42,11 +45,20 @@ import id.iqbaldev.kartrid.core.Settings
 import id.iqbaldev.kartrid.core.Sys
 
 private const val NAV_W = 250f
+private const val ROW_H = 78f   // 52px desain × 1,5 = 52dp: target sentuh wajar
 
 /** satu baris pengaturan */
 private sealed interface Row {
     val name: String
     val sub: String
+
+    data class Choices(
+        override val name: String,
+        override val sub: String,
+        val options: List<String>,
+        val current: String?,
+        val pick: (String) -> Unit,
+    ) : Row
 
     data class Toggle(
         override val name: String,
@@ -62,14 +74,6 @@ private sealed interface Row {
         val run: () -> Unit,
     ) : Row
 
-    data class Choices(
-        override val name: String,
-        override val sub: String,
-        val options: List<String>,
-        val current: String?,
-        val pick: (String) -> Unit,
-    ) : Row
-
     data class Info(
         override val name: String,
         override val sub: String,
@@ -83,6 +87,7 @@ fun SettingsScreen(
     counts: Map<String, Int>,
     scannedFolders: Map<String, List<String>>,
     retroPkg: String?,
+    installed: List<String>,
     cores: List<String>,
     cacheBytes: Long,
     onUpdate: (Settings) -> Unit,
@@ -96,7 +101,10 @@ fun SettingsScreen(
     val groups = listOf("Perpustakaan", "Emulator", "Tampilan", "Gambar & cache", "Data & tentang")
     var group by remember { mutableStateOf(0) }
     var sel by remember { mutableStateOf(0) }
+    var pickRow by remember { mutableStateOf<Row.Choices?>(null) }
+    var pickSel by remember { mutableStateOf(0) }
     val fr = remember { FocusRequester() }
+    val scroll = rememberScrollState()
 
     fun rows(g: Int): List<Row> = when (g) {
         0 -> buildList {
@@ -129,37 +137,30 @@ fun SettingsScreen(
             )
         }
         1 -> buildList {
+            val engines = installed.ifEmpty { RetroArch.PACKAGES }
             add(
-                Row.Info(
-                    name = "Aplikasi emulator",
-                    sub = retroPkg ?: "RetroArch nggak terdeteksi — install dulu",
-                    value = retroPkg ?: "—",
+                Row.Choices(
+                    name = "Engine",
+                    sub = if (installed.isEmpty()) "RetroArch belum terdeteksi — install dulu"
+                    else "aplikasi emulator yang dipakai (tap ganti)",
+                    options = engines,
+                    current = settings.retroPkg ?: retroPkg,
+                    pick = { onUpdate(settings.copy(retroPkg = it)) },
                 ),
             )
             for (s in Sys.order) {
-                val avail = s.cores.filter { it in cores }
+                val avail = s.cores.filter { it in cores }.ifEmpty { s.cores }
                 val cur = settings.cores[s.key]
-                if (avail.isEmpty()) {
-                    add(
-                        Row.Choices(
-                            name = "Core ${s.label}",
-                            sub = "auto-deteksi kosong — pilih manual",
-                            options = s.cores,
-                            current = cur?.takeIf { it in s.cores } ?: s.cores.first(),
-                            pick = { onUpdate(settings.copy(cores = settings.cores + (s.key to it))) },
-                        ),
-                    )
-                } else {
-                    add(
-                        Row.Choices(
-                            name = "Core ${s.label}",
-                            sub = "${cores.size} core terpasang",
-                            options = avail,
-                            current = cur?.takeIf { it in avail } ?: avail.first(),
-                            pick = { onUpdate(settings.copy(cores = settings.cores + (s.key to it))) },
-                        ),
-                    )
-                }
+                add(
+                    Row.Choices(
+                        name = "Core ${s.label}",
+                        sub = if (cores.isEmpty()) "auto-deteksi kosong — pilih manual"
+                        else "core untuk ${s.longLabel} (tap ganti)",
+                        options = avail,
+                        current = cur?.takeIf { it in avail } ?: avail.first(),
+                        pick = { onUpdate(settings.copy(cores = settings.cores + (s.key to it))) },
+                    ),
+                )
             }
             add(
                 Row.Info(
@@ -223,6 +224,7 @@ fun SettingsScreen(
     }
 
     val list = rows(group)
+    val picker = pickRow
 
     Box(
         Modifier
@@ -231,16 +233,39 @@ fun SettingsScreen(
             .focusable()
             .onPreviewKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                when (ev.nativeKeyEvent.keyCode) {
-                    AKey.KEYCODE_DPAD_UP -> { sel = (sel - 1).coerceAtLeast(0); sfx.tick(); true }
-                    AKey.KEYCODE_DPAD_DOWN -> { sel = (sel + 1).coerceAtMost(list.size - 1); sfx.tick(); true }
-                    AKey.KEYCODE_DPAD_LEFT -> { group = (group - 1 + groups.size) % groups.size; sel = 0; sfx.tick(); true }
-                    AKey.KEYCODE_DPAD_RIGHT -> { group = (group + 1) % groups.size; sel = 0; sfx.tick(); true }
-                    AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> {
-                        activate(list.getOrNull(sel)); true
+                val r = pickRow
+                if (r != null) {
+                    when (ev.nativeKeyEvent.keyCode) {
+                        AKey.KEYCODE_DPAD_UP -> { pickSel = (pickSel - 1).coerceAtLeast(0); sfx.tick(); true }
+                        AKey.KEYCODE_DPAD_DOWN -> { pickSel = (pickSel + 1).coerceAtMost(r.options.size - 1); sfx.tick(); true }
+                        AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> {
+                            r.pick(r.options[pickSel.coerceIn(0, r.options.size - 1)])
+                            pickRow = null
+                            sfx.tick()
+                            true
+                        }
+                        AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { pickRow = null; sfx.tick(); true }
+                        else -> false
                     }
-                    AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { onClose(); sfx.tick(); true }
-                    else -> false
+                } else {
+                    when (ev.nativeKeyEvent.keyCode) {
+                        AKey.KEYCODE_DPAD_UP -> { sel = (sel - 1).coerceAtLeast(0); sfx.tick(); true }
+                        AKey.KEYCODE_DPAD_DOWN -> { sel = (sel + 1).coerceAtMost(list.size - 1); sfx.tick(); true }
+                        AKey.KEYCODE_DPAD_LEFT -> { group = (group - 1 + groups.size) % groups.size; sel = 0; sfx.tick(); true }
+                        AKey.KEYCODE_DPAD_RIGHT -> { group = (group + 1) % groups.size; sel = 0; sfx.tick(); true }
+                        AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> {
+                            val row = list.getOrNull(sel)
+                            when (row) {
+                                is Row.Choices -> { pickRow = row; pickSel = row.options.indexOf(row.current).coerceAtLeast(0); sfx.tick() }
+                                is Row.Toggle -> row.set(!row.value)
+                                is Row.Action -> row.run()
+                                else -> Unit
+                            }
+                            true
+                        }
+                        AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { onClose(); sfx.tick(); true }
+                        else -> false
+                    }
                 }
             },
     ) {
@@ -269,7 +294,7 @@ fun SettingsScreen(
                 .drawBehind {
                     drawRect(T.hairline, topLeft = Offset(size.width - 1.5f, 0f), size = Size(1.5f, size.height))
                 }
-                .padding(top = 16.dp),
+                .padding(top = 12.dp),
         ) {
             groups.forEachIndexed { i, g ->
                 val on = i == group
@@ -283,7 +308,7 @@ fun SettingsScreen(
                             }
                         }
                         .clickable { group = i; sel = 0; sfx.tick() }
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                        .padding(horizontal = 20.dp, vertical = 15.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -296,11 +321,13 @@ fun SettingsScreen(
             }
         }
 
-        // body
+        // body (scroll — grup Emulator 8 baris × 52dp nggak muat sekaligus)
         Column(
             Modifier
                 .offset(x = NAV_W.dp, y = 38.dp)
-                .padding(start = 26.dp, end = 26.dp, top = 16.dp),
+                .padding(start = 26.dp, end = 26.dp, top = 12.dp)
+                .height(590.dp)
+                .verticalScroll(scroll),
         ) {
             Text(
                 text = groups[group].uppercase(),
@@ -308,10 +335,18 @@ fun SettingsScreen(
                 fontFamily = MONO,
                 fontSize = 10.5.sp,
                 letterSpacing = 1.3.sp,
+                modifier = Modifier.padding(bottom = 6.dp),
             )
-            Box(Modifier.height(6.dp))
             list.forEachIndexed { i, r ->
-                SettingRow(r, i == sel) { sel = i; activate(r) }
+                SettingRow(r, i == sel) {
+                    sel = i
+                    when (r) {
+                        is Row.Choices -> { pickRow = r; pickSel = r.options.indexOf(r.current).coerceAtLeast(0); sfx.tick() }
+                        is Row.Toggle -> r.set(!r.value)
+                        is Row.Action -> r.run()
+                        else -> Unit
+                    }
+                }
             }
         }
 
@@ -330,23 +365,32 @@ fun SettingsScreen(
             Box(Modifier.width(26.dp))
             HintItem("B", "kembali")
         }
+
+        // modal pilih engine/core
+        if (picker != null) {
+            PickerOverlay(
+                title = picker.name,
+                options = picker.options,
+                current = picker.current,
+                selected = pickSel.coerceIn(0, picker.options.size - 1),
+                label = { engineLabel(it) },
+                onSelect = { idx ->
+                    picker.pick(picker.options[idx])
+                    pickRow = null
+                },
+                onClose = { pickRow = null },
+                sfx = sfx,
+            )
+        }
+    }
+
+    // ikutin seleksi pas scroll (perkiraan posisi baris)
+    LaunchedEffect(sel, group) {
+        scroll.animateScrollTo(((sel * ROW_H - 150).toInt()).coerceAtLeast(0))
     }
 
     LaunchedEffect(Unit) {
         runCatching { fr.requestFocus() }
-    }
-}
-
-private fun activate(r: Row?) {
-    when (r) {
-        is Row.Toggle -> r.set(!r.value)
-        is Row.Action -> r.run()
-        is Row.Choices -> {
-            if (r.options.isEmpty()) return
-            val i = r.options.indexOf(r.current)
-            r.pick(r.options[(i + 1) % r.options.size])
-        }
-        else -> Unit
     }
 }
 
@@ -355,7 +399,7 @@ private fun SettingRow(r: Row, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(ROW_H.dp)
             .drawBehind {
                 if (selected) drawRect(T.muted)
                 drawRect(T.hairline, topLeft = Offset(0f, size.height - 1f), size = Size(size.width, 1f))
@@ -378,39 +422,99 @@ private fun SettingRow(r: Row, selected: Boolean, onClick: () -> Unit) {
                 color = T.mutedFg,
                 fontFamily = MONO,
                 fontSize = 10.5.sp,
-                maxLines = 1,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         when (r) {
             is Row.Toggle -> SwitchBox(r.value)
-            is Row.Choices -> {
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    for (o in r.options) {
-                        val on = o == r.current
-                        Box(
-                            Modifier
-                                .border(1.5.dp, if (on) T.lime else T.hairline)
-                                .background(if (on) T.muted else T.surface)
-                                .padding(horizontal = 9.dp, vertical = 5.dp),
-                        ) {
-                            Text(
-                                text = shortCore(o),
-                                color = if (on) T.lime else T.fg,
-                                fontFamily = MONO,
-                                fontSize = 10.5.sp,
-                            )
-                        }
-                    }
-                }
+            is Row.Choices -> Box(
+                Modifier
+                    .border(1.5.dp, if (selected) T.lime else T.hairline)
+                    .background(T.muted)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            ) {
+                Text(
+                    text = shortCore(r.current.orEmpty()).ifBlank { "▾ pilih" },
+                    color = if (selected) T.lime else T.fg,
+                    fontFamily = MONO,
+                    fontSize = 12.sp,
+                )
             }
             is Row.Action -> Box(
                 Modifier
                     .border(1.5.dp, if (selected) T.lime else T.hairline)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
             ) {
-                Text(r.label, color = if (selected) T.lime else T.fg, fontFamily = MONO, fontSize = 10.5.sp)
+                Text(r.label, color = if (selected) T.lime else T.fg, fontFamily = MONO, fontSize = 11.5.sp)
             }
             is Row.Info -> Text(r.value, color = T.mutedFg, fontFamily = MONO, fontSize = 10.5.sp)
+        }
+    }
+}
+
+/** modal daftar pilihan (pola Daijishou: baris → daftar → pilih) */
+@Composable
+private fun PickerOverlay(
+    title: String,
+    options: List<String>,
+    current: String?,
+    selected: Int,
+    label: (String) -> String,
+    onSelect: (Int) -> Unit,
+    onClose: () -> Unit,
+    sfx: Sfx,
+) {
+    val maxRows = 7
+    val start = (selected - 2).coerceIn(0, (options.size - maxRows).coerceAtLeast(0))
+    val visible = options.slice(start until (start + maxRows).coerceAtMost(options.size))
+
+    Box(Modifier.size(960.dp, 640.dp).background(T.bg.copy(alpha = 0.93f)))
+    Column(
+        Modifier
+            .offset(x = 270.dp, y = 110.dp)
+            .size(420.dp, (visible.size * 64 + 96).dp)
+            .background(T.surface)
+            .border(1.5.dp, T.hairline)
+            .padding(16.dp),
+    ) {
+        Text(title, color = T.lime, fontFamily = MONO, fontSize = 12.sp, letterSpacing = 1.4.sp)
+        Box(Modifier.height(10.dp))
+        visible.forEachIndexed { i, o ->
+            val on = start + i == selected
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .drawBehind {
+                        if (on) drawRect(T.muted)
+                        drawRect(T.hairline, topLeft = Offset(0f, size.height - 1f), size = Size(size.width, 1f))
+                    }
+                    .clickable { sfx.tick(); onSelect(start + i) }
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = label(o),
+                    color = if (on) T.lime else T.fg,
+                    fontFamily = MONO,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (o == current) {
+                    Box(Modifier.weight(1f))
+                    Text("●", color = T.lime, fontFamily = MONO, fontSize = 12.sp)
+                }
+            }
+        }
+        Box(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            HintItem("▲ ▼", "pilih")
+            Box(Modifier.width(22.dp))
+            HintItem("A", "pilih ini")
+            Box(Modifier.width(22.dp))
+            HintItem("B", "batal")
         }
     }
 }
@@ -419,15 +523,15 @@ private fun SettingRow(r: Row, selected: Boolean, onClick: () -> Unit) {
 private fun SwitchBox(on: Boolean) {
     Box(
         Modifier
-            .size(46.dp, 26.dp)
+            .size(69.dp, 39.dp)
             .border(1.5.dp, if (on) T.lime else T.ink)
             .background(if (on) T.lime else T.muted),
     ) {
         Box(
             Modifier
                 .align(if (on) Alignment.CenterEnd else Alignment.CenterStart)
-                .padding(2.dp)
-                .size(18.dp)
+                .padding(3.dp)
+                .size(27.dp)
                 .background(if (on) T.bg else T.fg),
         )
     }
@@ -435,6 +539,14 @@ private fun SwitchBox(on: Boolean) {
 
 fun shortCore(name: String): String =
     name.removeSuffix("_libretro_android.so").removeSuffix("_libretro.so").uppercase()
+
+fun engineLabel(pkg: String): String = when (pkg) {
+    "com.retroarch" -> "RetroArch"
+    "com.retroarch.aarch64" -> "RetroArch (aarch64)"
+    "com.retroarch.ra32" -> "RetroArch (32-bit)"
+    "com.retroarch.quest" -> "RetroArch (Quest)"
+    else -> pkg
+}
 
 fun fmtSize(bytes: Long): String = when {
     bytes >= 1024L * 1024L -> "%.1f MB".format(bytes / 1024f / 1024f)

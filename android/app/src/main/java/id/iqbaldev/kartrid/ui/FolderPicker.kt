@@ -165,18 +165,18 @@ fun FolderPicker(
                     Modifier
                         .background(T.lime)
                         .clickable { onPick(dir.absolutePath) }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                        .padding(horizontal = 18f.tdp, vertical = 12f.tdp),
                 ) {
-                    Text("PAKAI FOLDER INI", color = T.bg, fontFamily = DISPLAY, fontSize = 12.sp)
+                    Text("PAKAI FOLDER INI", color = T.bg, fontFamily = DISPLAY, fontSize = 13.sp)
                 }
                 Box(Modifier.width(10.dp))
                 Box(
                     Modifier
                         .border(1.5.dp, T.hairline)
                         .clickable { onClose() }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                        .padding(horizontal = 16f.tdp, vertical = 12f.tdp),
                 ) {
-                    Text("BATAL", color = T.mutedFg, fontFamily = MONO, fontSize = 11.5.sp)
+                    Text("BATAL", color = T.mutedFg, fontFamily = MONO, fontSize = 12.sp)
                 }
             }
 
@@ -207,7 +207,7 @@ private fun PickerRow(label: String, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .height(30.dp)
+            .height(45f.tdp)
             .drawBehind {
                 if (selected) {
                     drawRect(T.muted)
@@ -215,14 +215,14 @@ private fun PickerRow(label: String, selected: Boolean, onClick: () -> Unit) {
                 }
             }
             .clickable { onClick() }
-            .padding(horizontal = 10.dp),
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = label,
             color = if (selected) T.fg else T.mutedFg,
             fontFamily = MONO,
-            fontSize = 11.5.sp,
+            fontSize = 12.5.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

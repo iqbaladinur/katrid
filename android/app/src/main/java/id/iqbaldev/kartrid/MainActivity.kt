@@ -64,6 +64,7 @@ import id.iqbaldev.kartrid.ui.SettingsScreen
 import id.iqbaldev.kartrid.ui.Sfx
 import id.iqbaldev.kartrid.ui.ShelfScreen
 import id.iqbaldev.kartrid.ui.T
+import id.iqbaldev.kartrid.ui.tdp
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -191,6 +192,7 @@ private fun KartridRoot(
     var toast by remember { mutableStateOf<String?>(null) }
     var cores by remember { mutableStateOf<List<String>>(emptyList()) }
     var retroPkg by remember { mutableStateOf<String?>(null) }
+    var installedPkgs by remember { mutableStateOf<List<String>>(emptyList()) }
     var screen by remember { mutableStateOf(0) }
     var pickSys by remember { mutableStateOf<Sys?>(null) }
     var cacheBytes by remember { mutableStateOf(0L) }
@@ -242,12 +244,13 @@ private fun KartridRoot(
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             val pkg = RetroArch.pickPackage(ctx, store.settings.retroPkg)
+            val installed = RetroArch.installed(ctx)
             val cs = if (pkg != null) {
                 RetroArch.queryCores(ctx).ifEmpty { PlaylistReader.cores() }
             } else {
                 emptyList()
             }
-            withContext(Dispatchers.Main) { retroPkg = pkg; cores = cs; onCores(cs) }
+            withContext(Dispatchers.Main) { retroPkg = pkg; installedPkgs = installed; cores = cs; onCores(cs) }
         }
         if (permOk) runScan()
     }
@@ -304,6 +307,7 @@ private fun KartridRoot(
                 counts = counts,
                 scannedFolders = settings.folders,
                 retroPkg = retroPkg,
+                installed = installedPkgs,
                 cores = cores,
                 cacheBytes = cacheBytes,
                 onUpdate = { s -> settings = s; store.saveSettings(s) },
@@ -444,18 +448,18 @@ private fun PermPanel(onOpen: () -> Unit, onSkip: () -> Unit) {
                     Modifier
                         .background(T.lime)
                         .clickable { onOpen() }
-                        .padding(horizontal = 16.dp, vertical = 9.dp),
+                        .padding(horizontal = 22f.tdp, vertical = 12f.tdp),
                 ) {
-                    Text("BUKA PENGATURAN", color = T.bg, fontFamily = DISPLAY, fontSize = 12.sp)
+                    Text("BUKA PENGATURAN", color = T.bg, fontFamily = DISPLAY, fontSize = 13.sp)
                 }
                 Box(Modifier.width(12.dp))
                 Box(
                     Modifier
                         .border(1.5.dp, T.hairline)
                         .clickable { onSkip() }
-                        .padding(horizontal = 16.dp, vertical = 9.dp),
+                        .padding(horizontal = 18f.tdp, vertical = 12f.tdp),
                 ) {
-                    Text("LEWATI", color = T.mutedFg, fontFamily = MONO, fontSize = 11.5.sp)
+                    Text("LEWATI", color = T.mutedFg, fontFamily = MONO, fontSize = 12.sp)
                 }
             }
         }
