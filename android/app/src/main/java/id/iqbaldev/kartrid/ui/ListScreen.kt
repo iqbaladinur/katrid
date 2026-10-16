@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,10 +34,14 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,8 +70,14 @@ fun ListScreen(
     sfx: Sfx,
 ) {
     var sel by remember { mutableStateOf(0) }
+    var query by remember { mutableStateOf("") }
     val fr = remember { FocusRequester() }
-    val list = games
+    val searchFr = remember { FocusRequester() }
+    val kb = LocalSoftwareKeyboardController.current
+    val list = remember(games, query) {
+        if (query.isBlank()) games
+        else games.filter { it.title.contains(query.trim(), ignoreCase = true) }
+    }
     val selSafe = sel.coerceIn(0, (list.size - 1).coerceAtLeast(0))
 
     val window = remember(selSafe, list.size) {
@@ -156,8 +167,42 @@ fun ListScreen(
             Text("${list.size} games", color = T.mutedFg, fontFamily = MONO, fontSize = 13.sp)
         }
 
+        // field pencarian — fokus otomatis, keyboard langsung muncul
+        Row(
+            Modifier
+                .offset(y = 48.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 22.dp)
+                .height(42.dp)
+                .background(T.surface.copy(alpha = 0.95f))
+                .border(1.5.dp, T.hairline)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(">", color = T.lime, fontFamily = MONO, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Box(Modifier.width(10.dp))
+            BasicTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(searchFr),
+                textStyle = TextStyle(color = T.fg, fontFamily = MONO, fontSize = 13.sp),
+                cursorBrush = SolidColor(T.lime),
+                singleLine = true,
+                decorationBox = { inner ->
+                    Box(Modifier.fillMaxWidth()) {
+                        if (query.isEmpty()) {
+                            Text("SEARCH…", color = T.mutedFg, fontFamily = MONO, fontSize = 13.sp)
+                        }
+                        inner()
+                    }
+                },
+            )
+        }
+
         // daftar
-        Column(Modifier.offset(y = 46.dp).padding(start = 22.dp)) {
+        Column(Modifier.offset(y = 104.dp).padding(start = 22.dp)) {
             for (i in window) {
                 val g = list[i]
                 val on = i == selSafe
@@ -183,7 +228,7 @@ fun ListScreen(
                         Box(Modifier.padding(start = 8.dp))
                         Box(
                             Modifier
-                                .size(46f.tdp, 30f.tdp)
+                                .size(46f.tdp)
                                 .border(1.5.dp, T.black)
                                 .background(shellColor(g.sys.shell, on)),
                             contentAlignment = Alignment.Center,
@@ -193,8 +238,8 @@ fun ListScreen(
                                 Image(
                                     bitmap = bmp,
                                     contentDescription = null,
-                                    modifier = Modifier.fillMaxSize().padding(3.dp),
-                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize().padding(2.dp),
+                                    contentScale = ContentScale.Fit,
                                     alpha = if (on) 1f else 0.72f,
                                 )
                             } else {
@@ -237,7 +282,7 @@ fun ListScreen(
         // rail A–Z
         Column(
             Modifier
-                .offset(x = 800.dp, y = 52.dp)
+                .offset(x = 800.dp, y = 108.dp)
                 .padding(start = 8.dp, end = 8.dp),
         ) {
             for ((c, _) in initials) {
@@ -254,24 +299,38 @@ fun ListScreen(
             }
         }
 
-        // hint
+        // hint: satu box solid biar kebaca di atas daftar
         Row(
             Modifier
                 .fillMaxWidth()
-                .offset(y = 592.dp),
+                .offset(y = 588.dp),
             horizontalArrangement = Arrangement.Center,
         ) {
-            HintItem("L1 R1", "10 rows")
-            Box(Modifier.width(22.dp))
-            HintItem("A", "play")
-            Box(Modifier.width(22.dp))
-            HintItem("X", "switch system")
-            Box(Modifier.width(22.dp))
-            HintItem("B", "back")
+            Box(
+                Modifier
+                    .background(T.surface)
+                    .border(1.5.dp, T.hairline)
+                    .padding(horizontal = 22.dp, vertical = 10.dp),
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(22.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    HintItem("A", "play")
+                    HintItem("X", "system")
+                    HintItem("B", "back")
+                }
+            }
         }
     }
 
+    LaunchedEffect(query) {
+        sel = 0
+    }
+
     LaunchedEffect(Unit) {
+        runCatching { searchFr.requestFocus() }
+        kb?.show()
         runCatching { fr.requestFocus() }
     }
 }

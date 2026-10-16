@@ -281,40 +281,32 @@ fun ShelfScreen(
             horizontalArrangement = Arrangement.spacedBy(22.dp),
         ) {
             for (s in Tab.list) {
-                val on = s == tab
-                Row(
-                    Modifier
-                        .clickable { onTab(s); sfx.tick() }
-                        .drawBehind {
-                            // pod angular ala console launcher (bukan underline web)
-                            if (on) drawRect(T.muted)
-                            val e = if (on) T.lime else T.hairline
-                            drawRect(e, topLeft = Offset(0f, 0f), size = Size(size.width, 1.5f))
-                            drawRect(e, topLeft = Offset(0f, size.height - 1.5f), size = Size(size.width, 1.5f))
-                            drawRect(e, topLeft = Offset(0f, 0f), size = Size(1.5f, size.height))
-                            drawRect(e, topLeft = Offset(size.width - 1.5f, 0f), size = Size(1.5f, size.height))
+                        val on = s == tab
+                        Row(
+                            Modifier
+                                .clickable { onTab(s); sfx.tick() }
+                                .drawBehind { if (on) drawRect(T.muted) }
+                                .padding(horizontal = 18.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.size(10.dp, 10.dp).background(shellColor(s.sys?.shell ?: FAV_SHELL, on)))
+                            Box(Modifier.width(8.dp))
+                            Text(
+                                text = s.label,
+                                color = if (on) T.lime else T.fg.copy(alpha = 0.75f),
+                                fontFamily = MONO,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Box(Modifier.width(8.dp))
+                            Text(
+                                text = (counts[s.key] ?: 0).toString().padStart(2, '0'),
+                                color = if (on) T.lime else T.mutedFg,
+                                fontFamily = MONO,
+                                fontSize = 11.sp,
+                            )
                         }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(10.dp, 10.dp).background(shellColor(s.sys?.shell ?: FAV_SHELL, on)))
-                    Box(Modifier.width(8.dp))
-                    Text(
-                        text = s.label,
-                        color = if (on) T.lime else T.fg.copy(alpha = 0.75f),
-                        fontFamily = MONO,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Box(Modifier.width(8.dp))
-                    Text(
-                        text = (counts[s.key] ?: 0).toString().padStart(2, '0'),
-                        color = if (on) T.lime else T.mutedFg,
-                        fontFamily = MONO,
-                        fontSize = 11.sp,
-                    )
-                }
-            }
+                    }
             Box(Modifier.weight(1f))
 
             if (scanning || artRunning) {
@@ -327,8 +319,7 @@ fun ShelfScreen(
             }
             Box(
                 Modifier
-                    .size(30f.tdp)
-                    .border(1.5.dp, T.hairline)
+                    .size(32f.tdp)
                     .clickable { onSettings(); sfx.tick() },
                 contentAlignment = Alignment.Center,
             ) {
