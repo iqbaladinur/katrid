@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -391,12 +392,13 @@ private fun CartridgeSwitch(
 ) {
     val shape = RoundedCornerShape(20.dp)
     val capH = h * 0.17f
-    val artY = capH + 7f
-    val artH = h - artY - 26f
+    val artY = capH + 12f
+    val artH = h - artY - 30f
 
     Box(
         modifier
             .size(w.dp, h.dp)
+            .shadow(10.dp, shape, clip = false, ambientColor = Color(0x80151515), spotColor = Color(0x55151515))
             .drawWithContent {
                 val bottom = size.height * (1f - clipFrac.coerceIn(0f, 1f))
                 clipRect(right = size.width, bottom = bottom) { this@drawWithContent.drawContent() }
@@ -431,11 +433,11 @@ private fun CartridgeSwitch(
                 maxLines = 1,
             )
         }
-        // area art rounded
+        // area art rounded — margin gede (user: "box art margin nya digedein lagi")
         Box(
             Modifier
                 .offset(y = artY.dp)
-                .padding(horizontal = 9.dp)
+                .padding(horizontal = 16.dp)
                 .fillMaxWidth()
                 .height(artH.dp)
                 .clip(RoundedCornerShape(13.dp))

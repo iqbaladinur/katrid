@@ -68,14 +68,12 @@ private const val TOP_H = 84f
 private const val FAV_SHELL = 0xFFFFC94D
 private const val CENTER_X = 480f
 // kartrid PORTRAIT — Switch-card style (0.72:1)
-private const val CART_BOTTOM = 380f
+private const val CART_BOTTOM = 392f
 private const val FOCUS_W = 176f
 private const val FOCUS_H = 244f
 private const val ITEM_W = 118f
 private const val GAP = 40f
-private const val SLOT_W = 136f
-private const val SLOT_H = 16f
-private const val SLOT_TOP = 380f
+private const val SLOT_TOP = 392f
 
 private fun widthAt(d: Float): Float {
     val t = d.coerceIn(0f, 1f)
@@ -195,15 +193,7 @@ fun ShelfScreen(
             },
     ) {
 
-        // ---- slot strip (di belakang kartrid) ----
-        Box(
-            Modifier
-                .offset(x = (CENTER_X - SLOT_W / 2f).dp, y = SLOT_TOP.dp)
-                .size(SLOT_W.dp, SLOT_H.dp)
-                .background(Color(0xFF0A0810))
-                .border(2.dp, T.black)
-                .drawBehind { drawRect(T.lime, topLeft = Offset.Zero, size = Size(size.width, 2f)) },
-        )
+        // ---- slot strip dihapus (user: "garis itemnya buang aja / ganti shadow halus") ----
 
         // ---- rak ----
         val from = (index - 3).coerceAtLeast(0)
