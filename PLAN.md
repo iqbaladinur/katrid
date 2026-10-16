@@ -292,4 +292,51 @@ Scan: jalan di `Dispatchers.IO`, `Flow<ScanProgress>` (ditemukan/total/path) bia
 3. **Art default**: unduh saat dibutuhkan (APK kecil, butuh wifi sekali) atau bundle sebagian di APK (offline total, APK gede)?
 4. **KPA punya motor getar?** Kalau iya, haptic 18 ms bakal ikut nempel di klik. Lo bisa cek: Settings → Sound & vibration.
 
-Lanjutan yang bisa gw kerjain sekarang: **(a)** setup toolchain (JDK + cmdline-tools + project Compose) sampai APK "hello shelf" kepasang di KPA, atau **(b)** mockup v3 buat layar yang belum digambar (cari, detail game, setup wizard) dalam landscape.
+## 14. STATUS IMPLEMENTASI (16 Okt 2026)
+
+**Bukan plan lagi — kodenya udah jalan.** Repo lokal: `~/hobbies/kartrid` (git, commit `0cdd3fe` + `8f28207`).
+
+### Yang udah jadi
+
+| Bagian | File | Status |
+|---|---|---|
+| Project Compose (Kotlin, minSdk 26, compileSdk 35) | `android/` | ✅ `assembleDebug` sukses, APK **8,9 MB** |
+| Toolchain standalone tanpa apt | `~/android-dev/` (JDK 17 Temurin, cmdline-tools, SDK 35, Gradle 8.9) | ✅ 920 MB, `android/env.sh` |
+| Kanvas desain 960×640 (density override, 1 dp = 1 px mockup) | `ui/Theme.kt` | ✅ |
+| Rak kartrid: carousel kontinu, lift 8, snap, outline lime, hard shadow | `ui/ShelfScreen.kt` | ✅ |
+| Shell kartrid per sistem + notch + band + boxart (dim .6/.62 non-fokus) | `ui/Cartridge.kt` | ✅ |
+| Animasi masuk slot (turun 58 → clip 46% → flash + ring → overlay MEMUAT) | `ui/ShelfScreen.kt` | ✅ |
+| SFX insert/eject/tick (SoundPool, res/raw tidak dikompres) + haptic 18 ms | `ui/Sfx.kt` | ✅ |
+| Scan ROM + auto-discovery folder + library JSON | `core/RomScanner.kt`, `core/Store.kt` | ✅ |
+| Boxart on-demand dari thumbnails.libretro.com + downsample 256px + cache | `core/ArtCache.kt` | ✅ |
+| Launch RetroArch (kontrak §7 diverifikasi ulang dari source master) | `core/RetroArch.kt` | ✅ (belum diuji di device) |
+| D-pad first: ◀▶ pindah · A masukkan · X favorit · Y cari · B pengaturan | `ShelfScreen` key handler | ✅ |
+| S3 Cari & daftar (daftar berjendela + rail A–Z, D-pad) | `ui/ListScreen.kt` | ✅ |
+| S4 Pengaturan master–detail (Perpustakaan/Emulator/Tampilan/Gambar/Data) | `ui/SettingsScreen.kt` | ✅ |
+| Folder picker (path filesystem asli, bukan SAF) | `ui/FolderPicker.kt` | ✅ |
+
+### Yang belum
+
+- **Verifikasi di KPA** (butuh device) — UI, key mapping, izin, dan launch RetroArch belum pernah jalan di hardware.
+- S2 detail game (bottom sheet) + "Ganti gambar" override + sembunyikan game.
+- S5 setup wizard 3 langkah (sekarang izin file + folder picker udah ada, tapi belum berbentuk wizard).
+- Ikon launcher masih vector sederhana (belum ikon app final).
+- Statistik durasi main (totalMs) belum dihitung — perlu catat waktu masuk/keluar game.
+
+### Cara build & deploy
+
+```bash
+cd ~/hobbies/kartrid
+./deploy.sh                          # build + install ke device adb yang nyambung
+./deploy.sh connect 192.168.x.x:5555 # wireless debugging KPA
+```
+
+Build manual: `source android/env.sh && cd android && bash ./gradlew :app:assembleDebug`
+
+### Koreksi hasil verifikasi ulang (dari source RetroArch master)
+
+- Activity launcher: `com.retroarch.browser.retroactivity.RetroActivityFuture` (extends RetroActivityCamera).
+- `viaLauncher` dideteksi murni dari `getIntent().hasExtra("CONFIGFILE")` — file `RetroActivityCommon.java` sekarang ada di `pkg/android/phoenix-common/` (bukan `phoenix/`, jadi path di §7 perlu dikoreksi).
+- Direktori core = `getApplicationInfo().dataDir + "/cores/"` → `/data/data/<pkg>/cores/` (benar seperti §7).
+- Config default RetroArch di Android = `/storage/emulated/0/Android/data/<pkg>/files/retroarch.cfg` (**bukan** `/data/data/<pkg>/retroarch.cfg` — §7 perlu dikoreksi).
+- `RESET/REFRESH`: `REFRESH` di-parse sebagai int di `RetroActivityFuture.onResume()`.
