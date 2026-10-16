@@ -67,13 +67,13 @@ import kotlin.math.sign
 private const val TOP_H = 84f
 private const val FAV_SHELL = 0xFFFFC94D
 private const val CENTER_X = 480f
-// kartrid PORTRAIT — Switch-card style (0.72:1)
-private const val CART_BOTTOM = 392f
-private const val FOCUS_W = 176f
-private const val FOCUS_H = 244f
-private const val ITEM_W = 118f
-private const val GAP = 40f
-private const val SLOT_TOP = 392f
+// kartrid PORTRAIT — Switch-card style (0.72:1), diperbesar
+private const val CART_BOTTOM = 396f
+private const val FOCUS_W = 196f
+private const val FOCUS_H = 272f
+private const val ITEM_W = 132f
+private const val GAP = 42f
+private const val SLOT_TOP = 396f
 
 private fun widthAt(d: Float): Float {
     val t = d.coerceIn(0f, 1f)

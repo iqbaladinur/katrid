@@ -406,13 +406,13 @@ private fun CartridgeSwitch(
             .clip(shape)
             .border(1.5.dp, Color(0x88171711), shape),
     ) {
-        // body plastik off-white
+        // body plastik putih ala kartrid Switch
         Box(
             Modifier
                 .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color(0xFFF7F5EF), Color(0xFFDCDAD1)))),
+                .background(Brush.verticalGradient(listOf(Color(0xFFFBFBF7), Color(0xFFE7E5DD)))),
         )
-        // top cap = warna sistem
+        // top cap = warna sistem (strip ala kartrid Switch)
         Box(
             Modifier
                 .fillMaxWidth()
@@ -433,21 +433,26 @@ private fun CartridgeSwitch(
                 maxLines = 1,
             )
         }
-        // area art rounded — margin gede (user: "box art margin nya digedein lagi")
+        // area art: frame + shadow biar cover 'nyatu' sama body (bukan kotak gelap)
         Box(
             Modifier
                 .offset(y = artY.dp)
                 .padding(horizontal = 16.dp)
                 .fillMaxWidth()
                 .height(artH.dp)
-                .clip(RoundedCornerShape(13.dp))
-                .background(Color(0xFF101014)),
+                .shadow(5.dp, RoundedCornerShape(12.dp), clip = false, ambientColor = Color(0x66000000), spotColor = Color(0x33000000))
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFFF3F2EC))
+                .border(1.2.dp, Color(0x40000000), RoundedCornerShape(12.dp))
+                .padding(3.dp),
         ) {
             if (art != null) {
                 Image(
                     bitmap = art,
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(9.dp)),
                     contentScale = ContentScale.Fit,
                     colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
                 )
@@ -455,9 +460,9 @@ private fun CartridgeSwitch(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = sys.label,
-                        color = T.mutedFg.copy(alpha = 0.8f),
+                        color = T.mutedFg.copy(alpha = 0.55f),
                         fontFamily = DISPLAY,
-                        fontSize = 24.sp,
+                        fontSize = 22.sp,
                         letterSpacing = 2.sp,
                     )
                 }

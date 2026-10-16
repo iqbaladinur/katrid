@@ -171,8 +171,8 @@ class PreviewTest {
                     Cartridge(
                         sys = Sys.GBA,
                         art = art("gba_Pokemon_-_Emerald_Version__USA__Europe_.png"),
-                        w = 176f,
-                        h = 244f,
+                        w = 196f,
+                        h = 272f,
                         focused = true,
                         style = CartStyle.E,
                     )
