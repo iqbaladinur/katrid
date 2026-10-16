@@ -57,6 +57,7 @@ import id.iqbaldev.kartrid.core.RetroArch
 import id.iqbaldev.kartrid.core.RomScanner
 import id.iqbaldev.kartrid.core.Store
 import id.iqbaldev.kartrid.core.Sys
+import id.iqbaldev.kartrid.core.Tab
 import id.iqbaldev.kartrid.ui.DISPLAY
 import id.iqbaldev.kartrid.ui.FolderPicker
 import id.iqbaldev.kartrid.ui.ListScreen
@@ -237,7 +238,7 @@ private fun KartridRoot(
 
     var settings by remember { mutableStateOf(store.settings) }
     var games by remember { mutableStateOf(store.library.games) }
-    var tab by remember { mutableStateOf(Sys.GBA) }
+    var tab by remember { mutableStateOf(Tab.GBA) }
     var index by remember { mutableStateOf(0) }
     var scanning by remember { mutableStateOf(false) }
     var artRunning by remember { mutableStateOf(false) }
@@ -347,17 +348,32 @@ private fun KartridRoot(
         if (permOk && settings.autoScan) runScan()
     }
 
-    // index di sini = index RELATIF ke daftar visible per sistem (difilter di bawah).
-    // Jangan pakai index list penuh — itu bikin kursor mendarat salah pas ganti tab.
-    LaunchedEffect(tab) {
-        index = 0
+    // jumlah game visible di tab tertentu (FAV = campuran semua sistem)
+    val countFor: (Tab) -> Int = { t ->
+        val s = t.sys
+        if (s == null) games.count { it.fav && !it.hidden }
+        else games.count { it.system == s.key && !it.hidden }
     }
 
-    val counts = remember(games) {
-        games.filter { !it.hidden }.groupingBy { it.system }.eachCount()
+    // posisi selected per tab: simpan & balikin biar gak reset ke 0 tiap pindah tab
+    fun switchTab(new: Tab) {
+        if (new == tab) return
+        settings = settings.copy(lastIndex = settings.lastIndex + (tab.key to index))
+        store.saveSettings(settings)
+        tab = new
+        index = (settings.lastIndex[new.key] ?: 0).coerceIn(0, (countFor(new) - 1).coerceAtLeast(0))
     }
+
+    // clamp index kalau daftar berubah (unfavorite dst.) — bukan reset
+    LaunchedEffect(tab, games) {
+        index = index.coerceIn(0, (countFor(tab) - 1).coerceAtLeast(0))
+    }
+
+    val counts = remember(games) { Tab.list.map { it.key to countFor(it) }.toMap() }
     val visible = remember(tab, games) {
-        games.filter { it.system == tab.key && !it.hidden }
+        val s = tab.sys
+        if (s == null) games.filter { it.fav && !it.hidden }
+        else games.filter { it.system == s.key && !it.hidden }
     }
 
     Box(Modifier.fillMaxWidth()) {
@@ -376,7 +392,7 @@ private fun KartridRoot(
                 scanning = scanning,
                 artRunning = artRunning,
                 scanNote = note,
-                onTab = { tab = it },
+                onTab = { switchTab(it) },
                 onIndex = { index = it },
                 onLaunch = { g ->
                     val err = launchGame(g)
@@ -439,7 +455,8 @@ private fun KartridRoot(
         } else {
             ListScreen(
                 tab = tab,
-                games = games.filter { !it.hidden },
+                games = if (tab.sys == null) games.filter { it.fav && !it.hidden }
+                else games.filter { !it.hidden },
                 artOf = { g -> artCache.get(g)?.asImageBitmap() },
                 artVersion = artVersion,
                 onLaunch = { g ->
@@ -453,7 +470,7 @@ private fun KartridRoot(
                         runCatching { focusRequester.requestFocus() }
                     }
                 },
-                onTab = { tab = it },
+                onTab = { switchTab(it) },
                 sfx = sfx,
             )
         }

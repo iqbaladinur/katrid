@@ -65,6 +65,18 @@ enum class Sys(
     }
 }
 
+/** Tab UI: sistem + tab FAV (campuran semua sistem yang di-favoritkan) */
+enum class Tab(val key: String, val label: String, val sys: Sys?) {
+    FAV("FAV", "FAV", null),
+    GB("GB", "GB", Sys.GB),
+    GBC("GBC", "GBC", Sys.GBC),
+    GBA("GBA", "GBA", Sys.GBA);
+
+    companion object {
+        val list = entries
+    }
+}
+
 const val ART_NEVER = "NEVER"
 const val ART_OK = "OK"
 const val ART_FAILED = "FAILED"

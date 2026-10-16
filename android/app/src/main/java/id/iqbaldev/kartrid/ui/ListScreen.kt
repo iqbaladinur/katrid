@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import id.iqbaldev.kartrid.core.Game
 import id.iqbaldev.kartrid.core.Sys
+import id.iqbaldev.kartrid.core.Tab
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -54,13 +55,13 @@ private const val ROW_H = 72f
  */
 @Composable
 fun ListScreen(
-    tab: Sys,
+    tab: Tab,
     games: List<Game>,
     artOf: suspend (Game) -> ImageBitmap?,
     artVersion: Int,
     onLaunch: (Game) -> Unit,
     onClose: () -> Unit,
-    onTab: (Sys) -> Unit,
+    onTab: (Tab) -> Unit,
     sfx: Sfx,
 ) {
     var sel by remember { mutableStateOf(0) }
@@ -116,7 +117,7 @@ fun ListScreen(
                         true
                     }
                     AKey.KEYCODE_BUTTON_X -> {
-                        onTab(Sys.order[(Sys.order.indexOf(tab) + 1) % Sys.order.size])
+                        onTab(Tab.list[(Tab.list.indexOf(tab) + 1) % Tab.list.size])
                         sel = 0
                         sfx.tick()
                         true
@@ -141,7 +142,7 @@ fun ListScreen(
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             Text("SEARCH & LIST", color = T.lime, fontFamily = MONO, fontSize = 15.sp, letterSpacing = 1.4.sp)
-            for (s in Sys.order) {
+            for (s in Tab.list) {
                 val on = s == tab
                 Text(
                     text = s.label,

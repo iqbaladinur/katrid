@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import id.iqbaldev.kartrid.core.Game
 import id.iqbaldev.kartrid.core.Sys
+import id.iqbaldev.kartrid.core.Tab
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -62,6 +63,7 @@ import kotlin.math.sign
 
 // geometri (px, basis kanvas 960x640 — PLAN §3b)
 private const val TOP_H = 52f
+private const val FAV_SHELL = 0xFFFFC94D
 private const val CENTER_X = 480f
 private const val CART_BOTTOM = 380f
 private const val FOCUS_W = 288f
@@ -95,7 +97,7 @@ private fun aspect() = FOCUS_H / FOCUS_W
 
 @Composable
 fun ShelfScreen(
-    tab: Sys,
+    tab: Tab,
     counts: Map<String, Int>,
     games: List<Game>,
     index: Int,
@@ -105,7 +107,7 @@ fun ShelfScreen(
     scanning: Boolean,
     artRunning: Boolean,
     scanNote: String,
-    onTab: (Sys) -> Unit,
+    onTab: (Tab) -> Unit,
     onIndex: (Int) -> Unit,
     onLaunch: (Game) -> Unit,
     onFav: (Game) -> Unit,
@@ -179,8 +181,8 @@ fun ShelfScreen(
                 when (ev.nativeKeyEvent.keyCode) {
                     AKey.KEYCODE_DPAD_LEFT -> { move(-1); sfx.tick(); true }
                     AKey.KEYCODE_DPAD_RIGHT -> { move(1); sfx.tick(); true }
-                    AKey.KEYCODE_BUTTON_L1, AKey.KEYCODE_BUTTON_L2 -> { val i = Sys.order.indexOf(tab); onTab(Sys.order[(i + 2) % 3]); sfx.tick(); true }
-                    AKey.KEYCODE_BUTTON_R1, AKey.KEYCODE_BUTTON_R2 -> { val i = Sys.order.indexOf(tab); onTab(Sys.order[(i + 1) % 3]); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_L1, AKey.KEYCODE_BUTTON_L2 -> { val i = Tab.list.indexOf(tab); onTab(Tab.list[(i + Tab.list.size - 1) % Tab.list.size]); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_R1, AKey.KEYCODE_BUTTON_R2 -> { val i = Tab.list.indexOf(tab); onTab(Tab.list[(i + 1) % Tab.list.size]); sfx.tick(); true }
                     AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> { play(); true }
                     AKey.KEYCODE_BUTTON_X -> { current?.let { onFav(it); sfx.tick() }; true }
                     AKey.KEYCODE_BUTTON_Y -> { onSearch(); sfx.tick(); true }
@@ -279,7 +281,7 @@ fun ShelfScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(22.dp),
         ) {
-            for (s in Sys.order) {
+            for (s in Tab.list) {
                 val on = s == tab
                 Row(
                     Modifier
@@ -297,7 +299,7 @@ fun ShelfScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(Modifier.size(10.dp, 10.dp).background(shellColor(s.shell, on)))
+                    Box(Modifier.size(10.dp, 10.dp).background(shellColor(s.sys?.shell ?: FAV_SHELL, on)))
                     Box(Modifier.width(8.dp))
                     Text(
                         text = s.label,
