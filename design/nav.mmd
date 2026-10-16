@@ -1,0 +1,17 @@
+flowchart TD
+  W1["S5a Setup 1/3<br/>izin akses file"] --> W2["S5b Setup 2/3<br/>pilih folder ROM"]
+  W2 --> W3["S5c Setup 3/3<br/>deteksi emulator + core"]
+  W3 --> S1
+  S1["S1 RAK (home)<br/>tab sistem + rak kartrid"] -->|tap kartrid| SEL["kartrid terpilih<br/>naik + outline lime"]
+  SEL -->|tombol MAINKAN| LAUNCH["Intent ke RetroArch"]
+  LAUNCH -->|keluar game, QUITFOCUS| S1
+  S1 -->|long-press kartrid| S2["S2 Detail game<br/>bottom sheet"]
+  S2 --> LANJUT1["ganti gambar / favorit /<br/>sembunyikan / salin path"]
+  S1 -->|ikon cari| S3["S3 Cari & daftar"]
+  S1 -->|ikon gear| S4["S4 Pengaturan"]
+  S4 --> G1["Perpustakaan<br/>folder, pindai, tersembunyi"]
+  S4 --> G2["Emulator<br/>target, core, QUITFOCUS, 60Hz"]
+  S4 --> G3["Tampilan & gambar<br/>gaya rak, ukuran, cache"]
+  S4 -->|pindai ulang| SCAN["indikator scan berjalan"]
+  SCAN --> S1
+  S3 -->|tap hasil| S2

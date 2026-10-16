@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<title>KARTRID — mockup</title>
+<style>
+@font-face{font-family:Inter;font-weight:500;src:url('fonts/inter-500-latin.woff2') format('woff2')}
+@font-face{font-family:Inter;font-weight:600;src:url('fonts/inter-600-latin.woff2') format('woff2')}
+@font-face{font-family:Inter;font-weight:700;src:url('fonts/inter-700-latin.woff2') format('woff2')}
+@font-face{font-family:ArchivoBlack;font-weight:400;src:url('fonts/archivo-black-400-latin.woff2') format('woff2')}
+@font-face{font-family:JBMono;font-weight:500;src:url('fonts/jetbrains-mono-500-latin.woff2') format('woff2')}
+@font-face{font-family:JBMono;font-weight:700;src:url('fonts/jetbrains-mono-700-latin.woff2') format('woff2')}
+/* riso-volt dark */
+:root{
+ --bg:#16121F; --surface:#201A2C; --fg:#EAE6F2; --muted:#2A2338; --muted_fg:#B0A8C2;
+ --hairline:#362E47; --ink:#5B5270; --shadow:#050309; --violet:#A98BFF; --lime:#D4F24E;
+ --danger:#F2837B;
+ --shell-gb:#C6C7C0; --shell-gbc:#7FCFC0; --shell-gba:#5A4C93;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+.phone{display:none}.phone:target{display:block}
+html,body{width:100%}
+body{background:#0b0910;font-family:Inter,sans-serif;padding:24px;display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.phone{width:393px;height:786px;position:relative;overflow:hidden;background:var(--bg);color:var(--fg);
+  border:2px solid #000;flex:0 0 auto}
+.phone.wide{width:393px}
+.lbl{font-family:JBMono,monospace;font-weight:500;font-size:10.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted_fg)}
+.disp{font-family:ArchivoBlack,sans-serif;letter-spacing:.2px}
+.sb{height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-family:JBMono,monospace;font-size:10.5px;color:var(--muted_fg)}
+.hdr{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 14px}
+.brand{display:flex;align-items:center;gap:7px}
+.brand i{width:14px;height:14px;background:var(--violet);border:2px solid #000;display:block}
+.brand b{font-family:ArchivoBlack;font-size:15.5px;letter-spacing:.6px}
+.ico{width:34px;height:34px;border:1.5px solid var(--hairline);background:var(--surface);display:flex;align-items:center;justify-content:center;box-shadow:3px 3px 0 var(--shadow)}
+.tabs{display:flex;gap:8px;padding:0 14px;margin-top:2px}
+.tab{height:34px;padding:0 11px;border:1.5px solid var(--hairline);background:var(--surface);display:flex;align-items:center;gap:6px}
+.tab b{font-family:Inter;font-weight:700;font-size:12.5px}
+.tab span{font-family:JBMono;font-size:10px;color:var(--muted_fg)}
+.tab.on{background:var(--violet);border-color:var(--violet);color:#16121F;box-shadow:3px 3px 0 var(--shadow)}
+.tab.on span{color:#16121F;opacity:.75}
+.fil{display:flex;gap:18px;padding:12px 16px 4px}
+.fil div{font-family:JBMono;font-size:10.5px;letter-spacing:.9px;color:var(--muted_fg);padding-bottom:4px}
+.fil div.on{color:var(--fg);border-bottom:2.5px solid var(--lime)}
+/* shelf */
+.shelf{position:relative;height:424px;margin-top:4px}
+.ribs{position:absolute;inset:0 0 16px 0;background:
+  repeating-linear-gradient(90deg,transparent 0 118px,var(--muted) 118px 120px)}
+.ribs:after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,var(--bg) 0%,transparent 55%)}
+.row{position:absolute;left:0;right:0;bottom:16px;display:flex;gap:26px;align-items:flex-end;padding:0;transform:translateX(-66px)}
+.board{position:absolute;left:0;right:0;bottom:0;height:16px;background:var(--muted);border-top:2px solid var(--ink);box-shadow:0 5px 0 var(--shadow)}
+.cart{position:relative;flex:0 0 auto;border:2px solid #000;filter:saturate(.72) brightness(.78);box-shadow:4px 4px 0 var(--shadow)}
+.cart.on{transform:translateY(-20px);outline:3px solid var(--lime);outline-offset:2px;filter:none;
+  box-shadow:7px 7px 0 var(--shadow);z-index:3}
+.lab{position:absolute;inset:9px;border:2px solid rgba(0,0,0,.55);overflow:hidden;background:#111}
+.lab img{width:100%;height:100%;object-fit:cover;display:block}
+.lab .band{position:absolute;left:0;right:0;top:0;height:15px;background:rgba(0,0,0,.72);color:#fff;
+  font-family:JBMono;font-size:7.5px;letter-spacing:1.1px;display:flex;align-items:center;justify-content:center}
+.cart .ridge{position:absolute;left:12px;right:12px;bottom:6px;height:2px;background:rgba(0,0,0,.28)}
+.cart .notch{position:absolute;right:14px;top:0;width:34px;height:9px;background:var(--bg);border-left:2px solid #000;border-right:2px solid #000;border-bottom:2px solid #000}
+.gb{width:142px;height:158px;background:var(--shell-gb);border-radius:4px}
+.gbc{width:142px;height:158px;background:var(--shell-gbc);border-radius:12px 12px 4px 4px}
+.gba{width:158px;height:112px;background:var(--shell-gba);border-radius:4px}
+.gba .notch{right:auto;left:16px;width:26px;height:8px}
+.cnt{position:absolute;left:0;right:0;bottom:-24px;text-align:center;font-family:JBMono;font-size:10px;color:var(--muted_fg)}
+/* bottom info strip */
+.strip{position:absolute;left:12px;right:12px;bottom:12px;background:var(--surface);border:1.5px solid var(--hairline);
+  box-shadow:5px 5px 0 var(--shadow);padding:10px}
+.strip .t{display:flex;align-items:center;gap:9px}
+.strip .star{width:34px;height:34px;border:1.5px solid var(--hairline);display:flex;align-items:center;justify-content:center;background:var(--muted);flex:0 0 auto}
+.strip h3{font-family:ArchivoBlack;font-size:15px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.strip .m{font-family:JBMono;font-size:9.5px;color:var(--muted_fg);margin-top:2px}
+.strip .acts{display:flex;gap:8px;margin-top:9px;align-items:center}
+.ghost{height:40px;padding:0 10px;border:1.5px solid var(--hairline);background:var(--muted);display:flex;align-items:center;
+  font-family:JBMono;font-size:9.5px;letter-spacing:.7px;gap:6px}
+.play{margin-left:auto;height:40px;padding:0 16px;background:var(--lime);color:#16121F;border:2px solid #000;
+  box-shadow:4px 4px 0 var(--shadow);display:flex;align-items:center;gap:8px;font-family:ArchivoBlack;font-size:13px}
+/* sheet */
+.scrim{position:absolute;inset:0;background:rgba(5,3,9,.78)}
+.dim{opacity:.45;filter:saturate(.4)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-top:2px solid var(--ink);
+  border-left:1.5px solid var(--hairline);border-right:1.5px solid var(--hairline);box-shadow:0 -7px 0 var(--shadow);padding:8px 14px 14px}
+.grip{width:44px;height:4px;background:var(--muted_fg);opacity:.5;margin:2px auto 12px}
+.srow{display:flex;gap:12px;align-items:center}
+.srow h3{font-family:ArchivoBlack;font-size:16px;line-height:1.15}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px;margin:13px 0 6px;padding:11px 0;border-top:1.5px solid var(--hairline);border-bottom:1.5px solid var(--hairline)}
+.grid .k{font-family:JBMono;font-size:9px;letter-spacing:.8px;color:var(--muted_fg)}
+.grid .v{font-family:Inter;font-weight:600;font-size:12.5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grid .full{grid-column:1 / -1}
+.arow{display:flex;align-items:center;gap:11px;height:44px;border-bottom:1px solid var(--hairline);font-size:13px;font-weight:600}
+.arow .ch{margin-left:auto;color:var(--muted_fg)}
+.arow.acc{color:var(--violet)}
+/* list view */
+.srch{flex:1;height:38px;background:var(--surface);border:1.5px solid var(--hairline);display:flex;align-items:center;gap:8px;padding:0 10px}
+.srch p{font-size:12.5px;color:var(--muted_fg)}
+.chips{display:flex;gap:7px;padding:10px 14px 0;flex-wrap:wrap}
+.chip{height:28px;padding:0 10px;border:1.5px solid var(--hairline);background:var(--surface);display:flex;align-items:center;gap:6px;
+  font-family:JBMono;font-size:10px}
+.chip.on{border-color:var(--lime);background:var(--muted);box-shadow:2px 2px 0 var(--shadow)}
+.chip.on b{color:var(--lime)}
+.res{padding:9px 16px 5px}
+.lrow{display:flex;align-items:center;gap:11px;height:64px;padding:0 16px;border-bottom:1px solid var(--hairline)}
+.lrow.on{background:var(--muted);box-shadow:inset 3px 0 0 var(--lime)}
+.lrow .tt{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow .mm{font-family:JBMono;font-size:9.5px;color:var(--muted_fg);margin-top:2px}
+.rail{position:absolute;right:5px;top:206px;display:flex;flex-direction:column;gap:7px;font-family:JBMono;font-size:8.5px;color:var(--muted_fg);opacity:.85}
+.rail b{color:var(--lime)}
+.mini{width:46px;height:34px;border:1.5px solid #000;background:var(--shell-gba);position:relative;flex:0 0 auto}
+.mini i{position:absolute;inset:4px;background:#111;overflow:hidden;display:block}
+.mini i img{width:100%;height:100%;object-fit:cover}
+.mini.gb2{background:var(--shell-gb);width:40px;height:44px}
+.mini.gbc2{background:var(--shell-gbc);width:40px;height:44px;border-radius:6px 6px 2px 2px}
+/* settings */
+.sec{padding:14px 16px 0}
+.sec .h{font-family:JBMono;font-size:9.5px;letter-spacing:1.2px;color:var(--muted_fg);margin-bottom:6px}
+.srow2{display:flex;align-items:center;gap:10px;min-height:52px;border-bottom:1px solid var(--hairline);padding:7px 0}
+.srow2 .nam{font-weight:600;font-size:13px}
+.srow2 .sub{font-family:JBMono;font-size:9.5px;color:var(--muted_fg);margin-top:3px}
+.srow2 .val{font-family:JBMono;font-size:9.5px;color:var(--muted_fg);text-align:right;max-width:150px}
+.badge{font-family:JBMono;font-size:9px;border:1.5px solid var(--hairline);padding:2px 6px;background:var(--muted)}
+.sw{width:42px;height:24px;border:1.5px solid var(--ink);background:var(--muted);position:relative;flex:0 0 auto}
+.sw:after{content:"";position:absolute;top:1px;left:1px;width:17px;height:17px;background:var(--fg)}
+.sw.on{background:var(--lime)}
+.sw.on:after{left:auto;right:1px;background:#16121F}
+.radios{display:flex;gap:6px;margin:4px 0 2px;flex-wrap:wrap}
+.radio{border:1.5px solid var(--hairline);background:var(--surface);padding:5px 9px;font-family:JBMono;font-size:9.5px}
+.radio.on{border-color:var(--lime);color:var(--lime)}
+/* wizard */
+.wz{position:absolute;inset:26px 0 0 0;display:flex;flex-direction:column;padding:0 20px}
+.art{width:88px;height:88px;border:2px solid #000;background:var(--violet);display:flex;align-items:center;justify-content:center;box-shadow:6px 6px 0 var(--shadow);margin:26px 0 22px}
+.wz h2{font-family:ArchivoBlack;font-size:21px;line-height:1.22;margin-bottom:12px}
+.wz p{font-size:13.5px;line-height:1.5;color:var(--muted_fg)}
+.note{margin-top:16px;border-left:3px solid var(--lime);padding:8px 0 8px 11px;font-family:JBMono;font-size:10px;line-height:1.5;color:var(--muted_fg)}
+.prim{height:50px;background:var(--lime);color:#16121F;border:2px solid #000;box-shadow:5px 5px 0 var(--shadow);
+  display:flex;align-items:center;justify-content:center;font-family:ArchivoBlack;font-size:14px;margin-top:auto}
+.prim.off{background:var(--muted);color:var(--muted_fg);box-shadow:5px 5px 0 var(--shadow)}
+.wzrow{display:flex;align-items:center;gap:10px;border:1.5px solid var(--hairline);background:var(--surface);padding:11px;margin-bottom:9px}
+.wzrow .nm{font-weight:700;font-size:13px}
+.wzrow .st{font-family:JBMono;font-size:9px;color:var(--muted_fg);margin-top:3px}
+.wzrow .bt{margin-left:auto;border:1.5px solid var(--hairline);background:var(--muted);padding:7px 10px;font-family:JBMono;font-size:9.5px}
+.wzrow .bt.ok{border-color:var(--lime);color:var(--lime)}
+.dots{display:flex;gap:6px;margin-top:14px}
+.dots i{width:22px;height:4px;background:var(--muted)}.dots i.on{background:var(--lime)}
+.title-strip{position:absolute;bottom:-22px;left:0;font-family:JBMono;font-size:11px;color:#7d7590}
+</style></head>
+<body>
+
+<!-- ============ 1. SHELF ============ -->
+<div class="phone" id="s1">
+  <div class="sb"><span>09:41</span><span>⊞ ⏻ 78%</span></div>
+  <div class="hdr">
+    <div class="brand"><i></i><b>KARTRID</b></div>
+    <div style="display:flex;gap:8px">
+      <div class="ico"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#EAE6F2" stroke-width="2"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg></div>
+      <div class="ico"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#EAE6F2" stroke-width="2"><path d="M2 4h12M2 8h12M2 12h12"/></svg></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab"><b>GB</b><span>128</span></div>
+    <div class="tab"><b>GBC</b><span>96</span></div>
+    <div class="tab on"><b>GBA</b><span>214</span></div>
+  </div>
+
+  <div class="fil"><div>SEMUA</div><div class="on">★ FAVORIT</div><div>TERAKHIR</div></div>
+
+  <div class="shelf">
+    <div class="ribs"></div>
+    <div class="row">
+      <div class="cart gba"><div class="notch"></div><div class="lab"><img src="art/gba_Golden_Sun__USA__Europe_.png"><div class="band">GAME BOY ADVANCE</div></div><div class="ridge"></div></div>
+      <div class="cart gba on"><div class="notch"></div><div class="lab"><img src="art/gba_Pokemon_-_Emerald_Version__USA__Europe_.png"><div class="band">GAME BOY ADVANCE</div></div><div class="ridge"></div></div>
+      <div class="cart gba"><div class="notch"></div><div class="lab"><img src="art/gba_Metroid_Fusion__USA_.png"><div class="band">GAME BOY ADVANCE</div></div><div class="ridge"></div></div>
+      <div class="cart gba"><div class="notch"></div><div class="lab"><img src="art/gba_Castlevania_-_Aria_of_Sorrow__USA_.png"><div class="band">GAME BOY ADVANCE</div></div><div class="ridge"></div></div>
+    </div>
+    <div class="board"></div>
+    <div class="cnt">2 / 214 &nbsp;·&nbsp; geser ⟷</div>
+  </div>
+
+  <div class="strip">
+    <div class="t">
+      <div class="star"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#B0A8C2" stroke-width="1.6"><path d="M8 1.6l2 4.1 4.5.6-3.3 3.1.8 4.5L8 11.8 3.9 13.9l.8-4.5L1.4 6.3 5.9 5.7z"/></svg></div>
+      <div style="min-width:0;flex:1">
+        <h3>Pokémon Emerald Version</h3>
+        <div class="m">GBA · USA, EUR · 12.6 MB · main 17×</div>
+      </div>
+    </div>
+    <div class="acts">
+      <div class="ghost">▣ GANTI GAMBAR</div>
+      <div class="ghost">⋯</div>
+      <div class="play">
+        <svg width="13" height="13" viewBox="0 0 12 12" fill="#16121F"><path d="M2 1l9 5-9 5z"/></svg>MAINKAN</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 2. GAME SHEET ============ -->
+<div class="phone" id="s2">
+  <div class="sb"><span>09:41</span><span>⊞ ⏻ 78%</span></div>
+  <div class="hdr dim">
+    <div class="brand"><i></i><b>KARTRID</b></div>
+    <div style="display:flex;gap:8px"><div class="ico"></div><div class="ico"></div></div>
+  </div>
+  <div class="tabs dim"><div class="tab"><b>GB</b><span>128</span></div><div class="tab"><b>GBC</b><span>96</span></div><div class="tab on"><b>GBA</b><span>214</span></div></div>
+  <div class="shelf dim">
+    <div class="ribs"></div>
+    <div class="row">
+      <div class="cart gba"><div class="notch"></div><div class="lab"><img src="art/gba_Golden_Sun__USA__Europe_.png"></div></div>
+      <div class="cart gba on"><div class="notch"></div><div class="lab"><img src="art/gba_Pokemon_-_Emerald_Version__USA__Europe_.png"></div></div>
+      <div class="cart gba"><div class="notch"></div><div class="lab"><img src="art/gba_Metroid_Fusion__USA_.png"></div></div>
+      <div class="cart gba"><div class="notch"></div><div class="lab"><img src="art/gba_Castlevania_-_Aria_of_Sorrow__USA_.png"></div></div>
+    </div>
+    <div class="board"></div>
+  </div>
+  <div class="scrim"></div>
+  <div class="sheet">
+    <div class="grip"></div>
+    <div class="srow">
+      <div class="cart gba" style="width:104px;height:74px;box-shadow:none"><div class="notch" style="left:10px;width:18px;height:6px"></div><div class="lab" style="inset:6px"><img src="art/gba_Pokemon_-_Emerald_Version__USA__Europe_.png"></div></div>
+      <div style="min-width:0">
+        <h3>Pokémon Emerald Version</h3>
+        <div class="m lbl" style="margin-top:5px">USA, EUR · Rev 1 · .gba</div>
+      </div>
+    </div>
+    <div class="grid">
+      <div><div class="k">SISTEM</div><div class="v">Game Boy Advance</div></div>
+      <div><div class="k">CORE</div><div class="v">mGBA</div></div>
+      <div><div class="k">UKURAN</div><div class="v">12.6 MB</div></div>
+      <div><div class="k">TERAKHIR MAIN</div><div class="v">2 hari lalu</div></div>
+      <div><div class="k">TOTAL MAIN</div><div class="v">17×</div></div>
+      <div><div class="k">DURASI</div><div class="v">9 j 24 m</div></div>
+      <div class="full"><div class="k">PATH</div><div class="v" style="font-family:JBMono;font-weight:500;font-size:10px;margin-top:3px">/storage/emulated/0/Roms/GBA/Pokemon Emerald.gba</div></div>
+    </div>
+    <div class="arow"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#A98BFF" stroke-width="1.6"><path d="M8 1.6l2 4.1 4.5.6-3.3 3.1.8 4.5L8 11.8 3.9 13.9l.8-4.5L1.4 6.3 5.9 5.7z"/></svg>Jadikan favorit<span class="ch">★</span></div>
+    <div class="arow"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#EAE6F2" stroke-width="1.6"><rect x="2" y="2" width="12" height="12"/><path d="M2 10l3.5-3.5L9 10l2-2 3 3"/></svg>Ganti gambar<span class="ch">›</span></div>
+    <div class="arow"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#EAE6F2" stroke-width="1.6"><path d="M2 8s2.5-4.5 6-4.5S14 8 14 8s-2.5 4.5-6 4.5S2 8 2 8z"/><circle cx="8" cy="8" r="1.6"/></svg>Sembunyikan dari rak<span class="ch">›</span></div>
+    <div class="arow" style="border-bottom:none"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#EAE6F2" stroke-width="1.6"><rect x="5" y="5" width="9" height="9"/><path d="M11 5V2H2v9h3"/></svg>Salin path<span class="ch">›</span></div>
+    <div class="prim" style="margin-top:10px">
+      <svg width="14" height="14" viewBox="0 0 12 12" fill="#16121F" style="margin-right:8px"><path d="M2 1l9 5-9 5z"/></svg>MAINKAN</div>
+  </div>
+</div>
+
+<!-- ============ 3. SEARCH + LIST ============ -->
+<div class="phone" id="s3">
+  <div class="sb"><span>09:41</span><span>⊞ ⏻ 78%</span></div>
+  <div class="hdr" style="gap:10px">
+    <div class="ico"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#EAE6F2" stroke-width="2"><path d="M10 3L5 8l5 5"/></svg></div>
+    <div class="srch">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#B0A8C2" stroke-width="2"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+      <p>cari game…</p><div style="margin-left:auto;width:1.5px;height:16px;background:var(--lime)"></div>
+    </div>
+    <div class="ico" style="width:38px"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#EAE6F2" stroke-width="1.8"><path d="M3 4h10M5 8h6M7 12h2"/></svg></div>
+  </div>
+  <div class="chips">
+    <div class="chip on"><b>GB</b> 128</div>
+    <div class="chip">GBC 96</div>
+    <div class="chip on"><b>GBA</b> 214</div>
+    <div class="chip">★ 24</div>
+    <div class="chip">TERSEMBUNYI 12</div>
+  </div>
+  <div class="res lbl">42 hasil · GB + GBA · diurutkan A→Z</div>
+
+  <div class="lrow on"><div class="mini"><i><img src="art/gba_Metroid_Fusion__USA_.png"></i></div>
+    <div style="min-width:0;flex:1"><div class="tt">Metroid Fusion</div><div class="mm">GBA · USA · 8.0 MB · 2 j lalu</div></div>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="#D4F24E"><path d="M8 1.6l2 4.1 4.5.6-3.3 3.1.8 4.5L8 11.8 3.9 13.9l.8-4.5L1.4 6.3 5.9 5.7z"/></svg></div>
+  <div class="lrow"><div class="mini gb2"><i><img src="art/gb_Super_Mario_Land__World_.png"></i></div>
+    <div style="min-width:0;flex:1"><div class="tt">Super Mario Land</div><div class="mm">GB · World · 64 KB · 3 h lalu</div></div>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#B0A8C2" stroke-width="1.6"><path d="M8 1.6l2 4.1 4.5.6-3.3 3.1.8 4.5L8 11.8 3.9 13.9l.8-4.5L1.4 6.3 5.9 5.7z"/></svg></div>
+  <div class="lrow"><div class="mini gba"><i><img src="art/gba_Pokemon_-_Emerald_Version__USA__Europe_.png"></i></div>
+    <div style="min-width:0;flex:1"><div class="tt">Pokémon Emerald Version</div><div class="mm">GBA · USA, EUR · 12.6 MB · main 17×</div></div>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="#D4F24E"><path d="M8 1.6l2 4.1 4.5.6-3.3 3.1.8 4.5L8 11.8 3.9 13.9l.8-4.5L1.4 6.3 5.9 5.7z"/></svg></div>
+  <div class="lrow"><div class="mini gbc2"><i><img src="art/gbc_Pokemon_-_Crystal_Version__USA_.png"></i></div>
+    <div style="min-width:0;flex:1"><div class="tt">Pokémon Crystal Version</div><div class="mm">GBC · USA · 2.0 MB · belum pernah</div></div>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#B0A8C2" stroke-width="1.6"><path d="M8 1.6l2 4.1 4.5.6-3.3 3.1.8 4.5L8 11.8 3.9 13.9l.8-4.5L1.4 6.3 5.9 5.7z"/></svg></div>
+  <div class="lrow"><div class="mini gb2"><i><img src="art/gb_Tetris__World___Rev_1_.png"></i></div>
+    <div style="min-width:0;flex:1"><div class="tt">Tetris</div><div class="mm">GB · World · 32 KB · 1 mgg lalu</div></div>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="#D4F24E"><path d="M8 1.6l2 4.1 4.5.6-3.3 3.1.8 4.5L8 11.8 3.9 13.9l.8-4.5L1.4 6.3 5.9 5.7z"/></svg></div>
+  <div class="lrow"><div class="mini gba"><i><img src="art/gba_Golden_Sun__USA__Europe_.png"></i></div>
+    <div style="min-width:0;flex:1"><div class="tt">Golden Sun</div><div class="mm">GBA · USA, EUR · 8.2 MB · belum pernah</div></div>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#B0A8C2" stroke-width="1.6"><path d="M8 1.6l2 4.1 4.5.6-3.3 3.1.8 4.5L8 11.8 3.9 13.9l.8-4.5L1.4 6.3 5.9 5.7z"/></svg></div>
+  <div class="lrow"><div class="mini gba"><i><img src="art/gba_Advance_Wars__USA_.png"></i></div>
+    <div style="min-width:0;flex:1"><div class="tt">Advance Wars</div><div class="mm">GBA · USA · 4.6 MB · belum pernah</div></div>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#B0A8C2" stroke-width="1.6"><path d="M8 1.6l2 4.1 4.5.6-3.3 3.1.8 4.5L8 11.8 3.9 13.9l.8-4.5L1.4 6.3 5.9 5.7z"/></svg></div>
+  <div class="lrow"><div class="mini gba"><i><img src="art/gba_Castlevania_-_Aria_of_Sorrow__USA_.png"></i></div>
+    <div style="min-width:0;flex:1"><div class="tt">Castlevania: Aria of Sorrow</div><div class="mm">GBA · USA · 8.4 MB · belum pernah</div></div>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#B0A8C2" stroke-width="1.6"><path d="M8 1.6l2 4.1 4.5.6-3.3 3.1.8 4.5L8 11.8 3.9 13.9l.8-4.5L1.4 6.3 5.9 5.7z"/></svg></div>
+  <div class="rail"><span>A</span><span>B</span><span>C</span><span>D</span><b>E</b><span>F</span><span>G</span><span>H</span><span>I</span><span>J</span><span>K</span><span>L</span><span>M</span><span>N</span><span>O</span><span>P</span><span>Q</span><span>R</span><span>S</span><span>T</span><span>U</span><span>V</span><span>W</span><span>X</span><span>Y</span><span>Z</span></div>
+</div>
+
+<!-- ============ 4. SETTINGS ============ -->
+<div class="phone" id="s4">
+  <div class="sb"><span>09:41</span><span>⊞ ⏻ 78%</span></div>
+  <div class="hdr" style="gap:10px">
+    <div class="ico"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#EAE6F2" stroke-width="2"><path d="M10 3L5 8l5 5"/></svg></div>
+    <b class="disp" style="font-size:16px;flex:1">PENGATURAN</b>
+    <div class="badge">v0.1.0</div>
+  </div>
+
+  <div class="sec">
+    <div class="h">PERPUSTAKAAN</div>
+    <div class="srow2"><div style="flex:1"><div class="nam">Folder Game Boy</div><div class="sub">/Roms/GB</div></div><div class="badge">128</div></div>
+    <div class="srow2"><div style="flex:1"><div class="nam">Folder Game Boy Color</div><div class="sub">/Roms/GBC</div></div><div class="badge">96</div></div>
+    <div class="srow2"><div style="flex:1"><div class="nam">Folder Game Boy Advance</div><div class="sub">/Roms/GBA</div></div><div class="badge">214</div></div>
+    <div class="srow2"><div style="flex:1"><div class="nam">Pindai ulang</div><div class="sub">terakhir 5 mnt lalu</div></div><div class="badge">PINDAI</div></div>
+    <div class="srow2"><div style="flex:1"><div class="nam">Game disembunyikan</div></div><div class="badge">12</div></div>
+    <div class="srow2" style="border-bottom:none"><div style="flex:1"><div class="nam">Pindai otomatis saat dibuka</div></div><div class="sw on"></div></div>
+  </div>
+
+  <div class="sec">
+    <div class="h">EMULATOR</div>
+    <div class="srow2"><div style="flex:1"><div class="nam">Aplikasi target</div><div class="sub">RetroArch 1.20.0</div></div><div class="val">com.retroarch<br>.aarch64</div></div>
+    <div class="srow2" style="display:block">
+      <div class="nam">Core Game Boy Advance</div>
+      <div class="radios"><div class="radio on">mGBA ✓</div><div class="radio">gpSP</div><div class="radio">VBA-M</div></div>
+    </div>
+    <div class="srow2" style="border-bottom:none"><div style="flex:1"><div class="nam">Keluar saat keluar game</div><div class="sub">QUITFOCUS — balik ke rak</div></div><div class="sw on"></div></div>
+    <div class="srow2" style="border-bottom:none"><div style="flex:1"><div class="nam">Paksa 60 Hz</div><div class="sub">REFRESH=60</div></div><div class="sw on"></div></div>
+  </div>
+
+  <div class="sec">
+    <div class="h">TAMPILAN &amp; GAMBAR</div>
+    <div class="srow2"><div style="flex:1"><div class="nam">Gaya rak</div></div><div class="val">VOLT (gelap)</div></div>
+    <div class="srow2"><div style="flex:1"><div class="nam">Ukuran kartrid</div></div><div class="radios" style="margin:0"><div class="radio">S</div><div class="radio on">M</div><div class="radio">L</div></div></div>
+    <div class="srow2" style="border-bottom:none"><div style="flex:1"><div class="nam">Unduh gambar otomatis</div><div class="sub">cache 84 MB</div></div><div class="sw on"></div></div>
+  </div>
+</div>
+
+<!-- ============ 5a. WIZARD 1/3 ============ -->
+<div class="phone" id="s5">
+  <div class="sb"><span>09:41</span><span>⊞ ⏻ 78%</span></div>
+  <div class="hdr"><div class="brand"><i></i><b>KARTRID</b></div><div class="lbl">1 / 3</div></div>
+  <div class="wz">
+    <div class="art"><svg width="42" height="42" viewBox="0 0 32 32" fill="none" stroke="#16121F" stroke-width="2.4"><path d="M3 8h10l3 3h13v16H3z"/><path d="M3 12h26"/></svg></div>
+    <h2>Kartrid butuh<br>akses ke folder ROM</h2>
+    <p>Supaya bisa baca daftar game, bikin label kartrid, dan ngasih path ROM ke emulator. Nggak ada file yang di-upload ke mana-mana.</p>
+    <div class="note">Android 11+ → izin “Semua file”. Aplikasi ini bukan home launcher, jadi cukup buat app-nya sendiri.</div>
+    <div class="dots"><i class="on"></i><i></i><i></i></div>
+    <div class="prim">BUKA PENGATURAN IZIN</div>
+    <div style="text-align:center;margin:12px 0 18px" class="lbl">lewati dulu</div>
+  </div>
+</div>
+
+<!-- ============ 5b. WIZARD 2/3 ============ -->
+<div class="phone" id="s6">
+  <div class="sb"><span>09:41</span><span>⊞ ⏻ 78%</span></div>
+  <div class="hdr" style="gap:10px">
+    <div class="ico"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#EAE6F2" stroke-width="2"><path d="M10 3L5 8l5 5"/></svg></div>
+    <div class="brand"><i></i><b>KARTRID</b></div>
+    <div class="lbl" style="margin-left:auto">2 / 3</div>
+  </div>
+  <div class="wz">
+    <h2>Tunjuk folder<br>ROM tiap sistem</h2>
+    <p style="margin-bottom:18px">Pilih folder-nya (boleh beberapa). Kartrid bakal ngecek isi folder &amp; hitung file yang kebaca.</p>
+    <div class="wzrow"><div><div class="nm">Game Boy</div><div class="st">128 file .gb</div></div><div class="bt ok">GANTI</div></div>
+    <div class="wzrow" style="border-color:var(--lime)"><div><div class="nm">Game Boy Color</div><div class="st">belum dipilih</div></div><div class="bt">PILIH FOLDER</div></div>
+    <div class="wzrow"><div><div class="nm">Game Boy Advance</div><div class="st">214 file .gba</div></div><div class="bt ok">GANTI</div></div>
+    <div class="dots"><i class="on"></i><i class="on"></i><i></i></div>
+    <div class="prim off">LANJUT — 2 DARI 3 SISTEM SIAP</div>
+  </div>
+</div>
+
+<script>
+function audit(){
+  const bad=[];
+  document.querySelectorAll('.phone').forEach(p=>{
+    p.querySelectorAll('*').forEach(el=>{
+      const r=el.getBoundingClientRect(), pr=p.getBoundingClientRect();
+      if(el.scrollWidth-el.clientWidth>1 && getComputedStyle(el).overflow==='visible' && el.children.length===0)
+        bad.push(el.className+'|'+el.textContent.slice(0,20));
+    });
+  });
+  return bad;
+}
+document.title='ready';
+</script>
+</body></html>
