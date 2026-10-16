@@ -388,7 +388,7 @@ fun ShelfScreen(
                 ListSpacer()
                 HintItem("Y", "cari")
                 ListSpacer()
-                HintItem("B", "info")
+                HintItem("B", "pengaturan")
             }
         }
 

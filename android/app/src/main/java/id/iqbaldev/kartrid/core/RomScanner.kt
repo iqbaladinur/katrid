@@ -96,7 +96,8 @@ object RomScanner {
                     .maxDepth(MAX_DEPTH)
                     .onFail { _, _ -> }
                     .forEach { f ->
-                        if (f.isFile && f.extension.equals(sys.ext, ignoreCase = true)) {
+                        // skip junk: dotfile mac (._*), metadata (.*), file nyangkut
+                        if (f.isFile && !f.name.startsWith(".") && f.extension.equals(sys.ext, ignoreCase = true)) {
                             found++
                             out.add(make(sys, f))
                             if (found % 12 == 0) onProgress(found, f.absolutePath)

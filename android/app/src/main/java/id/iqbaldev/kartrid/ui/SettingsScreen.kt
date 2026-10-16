@@ -140,7 +140,15 @@ fun SettingsScreen(
                 val avail = s.cores.filter { it in cores }
                 val cur = settings.cores[s.key]
                 if (avail.isEmpty()) {
-                    add(Row.Info(name = "Core ${s.label}", sub = "belum ada core terpasang", value = "—"))
+                    add(
+                        Row.Choices(
+                            name = "Core ${s.label}",
+                            sub = "auto-deteksi kosong — pilih manual",
+                            options = s.cores,
+                            current = cur?.takeIf { it in s.cores } ?: s.cores.first(),
+                            pick = { onUpdate(settings.copy(cores = settings.cores + (s.key to it))) },
+                        ),
+                    )
                 } else {
                     add(
                         Row.Choices(

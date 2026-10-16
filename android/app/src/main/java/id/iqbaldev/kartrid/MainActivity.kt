@@ -49,6 +49,7 @@ import id.iqbaldev.kartrid.core.ART_OK
 import id.iqbaldev.kartrid.core.ArtCache
 import id.iqbaldev.kartrid.core.Game
 import id.iqbaldev.kartrid.core.Library
+import id.iqbaldev.kartrid.core.PlaylistReader
 import id.iqbaldev.kartrid.core.RetroArch
 import id.iqbaldev.kartrid.core.RomScanner
 import id.iqbaldev.kartrid.core.Store
@@ -63,6 +64,10 @@ import id.iqbaldev.kartrid.ui.SettingsScreen
 import id.iqbaldev.kartrid.ui.Sfx
 import id.iqbaldev.kartrid.ui.ShelfScreen
 import id.iqbaldev.kartrid.ui.T
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -237,7 +242,11 @@ private fun KartridRoot(
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             val pkg = RetroArch.pickPackage(ctx, store.settings.retroPkg)
-            val cs = if (pkg != null) RetroArch.queryCores(ctx) else emptyList()
+            val cs = if (pkg != null) {
+                RetroArch.queryCores(ctx).ifEmpty { PlaylistReader.cores() }
+            } else {
+                emptyList()
+            }
             withContext(Dispatchers.Main) { retroPkg = pkg; cores = cs; onCores(cs) }
         }
         if (permOk) runScan()
@@ -372,7 +381,18 @@ private fun KartridRoot(
         }
     }
 
-    LaunchedEffect(permOk) {
+    // re-check izin tiap kali app balik ke foreground (absen pas keluar dari Settings)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var resumeTick by remember { mutableStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val obs = LifecycleEventObserver { _, e ->
+            if (e == Lifecycle.Event.ON_RESUME) resumeTick++
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+    LaunchedEffect(resumeTick) {
+        permOk = hasStorage()
         if (permOk && games.isEmpty() && !scanning) runScan()
     }
 
