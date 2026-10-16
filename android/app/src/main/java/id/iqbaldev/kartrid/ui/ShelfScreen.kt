@@ -294,7 +294,6 @@ fun ShelfScreen(
                             drawRect(e, topLeft = Offset(0f, size.height - 1.5f), size = Size(size.width, 1.5f))
                             drawRect(e, topLeft = Offset(0f, 0f), size = Size(1.5f, size.height))
                             drawRect(e, topLeft = Offset(size.width - 1.5f, 0f), size = Size(1.5f, size.height))
-                            if (on) drawRect(T.lime, topLeft = Offset(0f, 0f), size = Size(size.width, 4f))
                         }
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
