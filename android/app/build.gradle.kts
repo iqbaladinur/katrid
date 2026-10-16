@@ -45,6 +45,16 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all {
+                it.systemProperty("roborazzi.test.record", "true")
+                it.systemProperty("robolectric.graphicsMode", "NATIVE")
+            }
+        }
+    }
 }
 
 dependencies {
@@ -60,4 +70,11 @@ dependencies {
     implementation("androidx.compose.material3:material3")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+
+    // preview rendering (Roborazzi) — bikin PNG render UI asli di host, tanpa device
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.33.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.33.0")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
 }

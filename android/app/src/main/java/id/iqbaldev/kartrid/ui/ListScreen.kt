@@ -46,7 +46,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private const val ROWS = 8
-private const val ROW_H = 66f
+private const val ROW_H = 80f
 
 /**
  * S3 Cari & Daftar — versi D-pad: daftar berjendela + rail A–Z.
@@ -140,7 +140,7 @@ fun ListScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Text("CARI & DAFTAR", color = T.lime, fontFamily = MONO, fontSize = 13.sp, letterSpacing = 1.4.sp)
+            Text("CARI & DAFTAR", color = T.lime, fontFamily = MONO, fontSize = 15.sp, letterSpacing = 1.4.sp)
             for (s in Sys.order) {
                 val on = s == tab
                 Text(
@@ -152,7 +152,7 @@ fun ListScreen(
                 )
             }
             Box(Modifier.width(1.dp))
-            Text("${list.size} game", color = T.mutedFg, fontFamily = MONO, fontSize = 11.sp)
+            Text("${list.size} game", color = T.mutedFg, fontFamily = MONO, fontSize = 13.sp)
         }
 
         // daftar
@@ -182,7 +182,7 @@ fun ListScreen(
                         Box(Modifier.padding(start = 8.dp))
                         Box(
                             Modifier
-                                .size(40f.tdp, 28f.tdp)
+                                .size(46f.tdp, 30f.tdp)
                                 .border(1.5.dp, T.black)
                                 .background(shellColor(g.sys.shell, on)),
                         ) {
@@ -203,7 +203,7 @@ fun ListScreen(
                                 text = g.title,
                                 color = if (on) T.fg else T.fg.copy(alpha = 0.88f),
                                 fontFamily = MONO,
-                                fontSize = 12.sp,
+                                fontSize = 14.5.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -216,7 +216,7 @@ fun ListScreen(
                             },
                             color = T.mutedFg,
                             fontFamily = MONO,
-                            fontSize = 10.sp,
+                            fontSize = 12.sp,
                             maxLines = 1,
                         )
                         Box(Modifier.width(10.dp))

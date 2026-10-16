@@ -125,14 +125,14 @@ fun FolderPicker(
                 text = "PILIH FOLDER ${sys.longLabel}",
                 color = T.lime,
                 fontFamily = MONO,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 letterSpacing = 1.4.sp,
             )
             Text(
                 text = dir.absolutePath,
                 color = T.mutedFg,
                 fontFamily = MONO,
-                fontSize = 10.5.sp,
+                fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 6.dp),

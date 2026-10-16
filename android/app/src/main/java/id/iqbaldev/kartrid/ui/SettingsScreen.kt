@@ -45,7 +45,7 @@ import id.iqbaldev.kartrid.core.Settings
 import id.iqbaldev.kartrid.core.Sys
 
 private const val NAV_W = 250f
-private const val ROW_H = 78f   // 52px desain × 1,5 = 52dp: target sentuh wajar
+private const val ROW_H = 96f   // baris pengaturan: jempol-friendly
 
 /** satu baris pengaturan */
 private sealed interface Row {
@@ -97,9 +97,11 @@ fun SettingsScreen(
     onFolderPick: (Sys) -> Unit,
     onClose: () -> Unit,
     sfx: Sfx,
+    initialGroup: Int = 0,
+    initialPick: String? = null,
 ) {
     val groups = listOf("Perpustakaan", "Emulator", "Tampilan", "Gambar & cache", "Data & tentang")
-    var group by remember { mutableStateOf(0) }
+    var group by remember { mutableStateOf(initialGroup.coerceIn(0, groups.size - 1)) }
     var sel by remember { mutableStateOf(0) }
     var pickRow by remember { mutableStateOf<Row.Choices?>(null) }
     var pickSel by remember { mutableStateOf(0) }
@@ -308,14 +310,14 @@ fun SettingsScreen(
                             }
                         }
                         .clickable { group = i; sel = 0; sfx.tick() }
-                        .padding(horizontal = 20.dp, vertical = 15.dp),
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = if (on) "› $g" else g,
                         color = if (on) T.lime else T.mutedFg,
                         fontFamily = MONO,
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                     )
                 }
             }
@@ -333,7 +335,7 @@ fun SettingsScreen(
                 text = groups[group].uppercase(),
                 color = T.mutedFg,
                 fontFamily = MONO,
-                fontSize = 10.5.sp,
+                fontSize = 12.5.sp,
                 letterSpacing = 1.3.sp,
                 modifier = Modifier.padding(bottom = 6.dp),
             )
@@ -392,6 +394,17 @@ fun SettingsScreen(
     LaunchedEffect(Unit) {
         runCatching { fr.requestFocus() }
     }
+
+    // buka modal picker langsung (dipakai preview / deep-link)
+    LaunchedEffect(initialPick) {
+        if (initialPick != null) {
+            val r = rows(group).firstOrNull { it is Row.Choices && it.name == initialPick } as? Row.Choices
+            if (r != null) {
+                pickRow = r
+                pickSel = r.options.indexOf(r.current).coerceAtLeast(0)
+            }
+        }
+    }
 }
 
 @Composable
@@ -413,7 +426,7 @@ private fun SettingRow(r: Row, selected: Boolean, onClick: () -> Unit) {
                 text = r.name,
                 color = if (selected) T.fg else T.fg.copy(alpha = 0.92f),
                 fontFamily = SANS,
-                fontSize = 14.sp,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
             )
@@ -421,7 +434,7 @@ private fun SettingRow(r: Row, selected: Boolean, onClick: () -> Unit) {
                 text = r.sub,
                 color = T.mutedFg,
                 fontFamily = MONO,
-                fontSize = 10.5.sp,
+                fontSize = 13.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -432,21 +445,21 @@ private fun SettingRow(r: Row, selected: Boolean, onClick: () -> Unit) {
                 Modifier
                     .border(1.5.dp, if (selected) T.lime else T.hairline)
                     .background(T.muted)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
             ) {
                 Text(
                     text = shortCore(r.current.orEmpty()).ifBlank { "▾ pilih" },
                     color = if (selected) T.lime else T.fg,
                     fontFamily = MONO,
-                    fontSize = 12.sp,
+                    fontSize = 13.5.sp,
                 )
             }
             is Row.Action -> Box(
                 Modifier
                     .border(1.5.dp, if (selected) T.lime else T.hairline)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-            ) {
-                Text(r.label, color = if (selected) T.lime else T.fg, fontFamily = MONO, fontSize = 11.5.sp)
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                ) {
+                Text(r.label, color = if (selected) T.lime else T.fg, fontFamily = MONO, fontSize = 13.5.sp)
             }
             is Row.Info -> Text(r.value, color = T.mutedFg, fontFamily = MONO, fontSize = 10.5.sp)
         }
@@ -485,7 +498,7 @@ private fun PickerOverlay(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .height(64.dp)
+                    .height(72.dp)
                     .drawBehind {
                         if (on) drawRect(T.muted)
                         drawRect(T.hairline, topLeft = Offset(0f, size.height - 1f), size = Size(size.width, 1f))
@@ -498,7 +511,7 @@ private fun PickerOverlay(
                     text = label(o),
                     color = if (on) T.lime else T.fg,
                     fontFamily = MONO,
-                    fontSize = 13.sp,
+                    fontSize = 15.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -523,7 +536,7 @@ private fun PickerOverlay(
 private fun SwitchBox(on: Boolean) {
     Box(
         Modifier
-            .size(69.dp, 39.dp)
+            .size(84.dp, 48.dp)
             .border(1.5.dp, if (on) T.lime else T.ink)
             .background(if (on) T.lime else T.muted),
     ) {
@@ -531,7 +544,7 @@ private fun SwitchBox(on: Boolean) {
             Modifier
                 .align(if (on) Alignment.CenterEnd else Alignment.CenterStart)
                 .padding(3.dp)
-                .size(27.dp)
+                .size(32.dp)
                 .background(if (on) T.bg else T.fg),
         )
     }

@@ -60,16 +60,16 @@ import kotlin.math.roundToInt
 import kotlin.math.sign
 
 // geometri (px, basis kanvas 960x640 — PLAN §3b)
-private const val TOP_H = 38f
+private const val TOP_H = 52f
 private const val CENTER_X = 480f
-private const val CART_BOTTOM = 530f
+private const val CART_BOTTOM = 500f
 private const val FOCUS_W = 288f
 private const val FOCUS_H = 206f
 private const val ITEM_W = 196f
 private const val GAP = 34f
 private const val SLOT_W = 204f
 private const val SLOT_H = 18f
-private const val SLOT_TOP = 522f
+private const val SLOT_TOP = 500f
 
 private fun widthAt(d: Float): Float {
     val t = d.coerceIn(0f, 1f)
@@ -291,8 +291,8 @@ fun ShelfScreen(
                         text = "${s.label} ${counts[s.key] ?: 0}",
                         color = if (on) T.lime else T.mutedFg,
                         fontFamily = MONO,
-                        fontSize = 13.sp,
-                        letterSpacing = 1.4.sp,
+                        fontSize = 16.sp,
+                        letterSpacing = 1.2.sp,
                     )
                 }
             }
@@ -309,7 +309,7 @@ fun ShelfScreen(
             }
             Box(
                 Modifier
-                    .size(26f.tdp)
+                    .size(30f.tdp)
                     .padding(bottom = 6.dp)
                     .border(1.5.dp, T.hairline)
                     .clickable { onSettings(); sfx.tick() }
@@ -328,7 +328,7 @@ fun ShelfScreen(
         Column(
             Modifier
                 .fillMaxWidth()
-                .offset(y = 546.dp),
+                .offset(y = 524.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (current != null) {
@@ -336,7 +336,7 @@ fun ShelfScreen(
                     text = current.title,
                     color = T.fg,
                     fontFamily = DISPLAY,
-                    fontSize = 27.sp,
+                    fontSize = 34.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
@@ -345,16 +345,16 @@ fun ShelfScreen(
                     text = metaOf(current),
                     color = T.mutedFg,
                     fontFamily = MONO,
-                    fontSize = 11.5.sp,
+                    fontSize = 13.5.sp,
                     letterSpacing = 0.8.sp,
-                    modifier = Modifier.padding(top = 5.dp),
+                    modifier = Modifier.padding(top = 8.dp),
                 )
             } else {
                 Text(
                     text = "RAK KOSONG",
                     color = T.mutedFg,
                     fontFamily = DISPLAY,
-                    fontSize = 27.sp,
+                    fontSize = 34.sp,
                 )
             }
         }
@@ -365,7 +365,7 @@ fun ShelfScreen(
                 text = it,
                 color = T.lime,
                 fontFamily = MONO,
-                fontSize = 12.sp,
+                fontSize = 14.sp,
                 letterSpacing = 1.4.sp,
                 modifier = Modifier.offset(y = 478.dp).fillMaxWidth(),
                 textAlign = TextAlign.Center,
@@ -377,7 +377,7 @@ fun ShelfScreen(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .offset(y = 610.dp),
+                    .offset(y = 598.dp),
                 horizontalArrangement = Arrangement.Center,
             ) {
                 HintItem("◀ ▶", "pindah")
@@ -428,18 +428,18 @@ internal fun HintItem(key: String, label: String) {
             Modifier
                 .border(1.5.dp, T.hairline)
                 .background(T.surface)
-                .padding(horizontal = 10f.tdp, vertical = 5f.tdp),
+                .padding(horizontal = 12f.tdp, vertical = 6f.tdp),
         ) {
-            Text(key, color = T.fg, fontFamily = MONO, fontSize = 12.sp)
+            Text(key, color = T.fg, fontFamily = MONO, fontSize = 15.sp)
         }
-        Box(Modifier.width(6.dp))
-        Text(label, color = T.mutedFg, fontFamily = MONO, fontSize = 12.sp)
+        Box(Modifier.width(8.dp))
+        Text(label, color = T.mutedFg, fontFamily = MONO, fontSize = 15.sp)
     }
 }
 
 @Composable
 private fun ListSpacer() {
-    Box(Modifier.width(26.dp))
+    Box(Modifier.width(30.dp))
 }
 
 @Composable
