@@ -255,9 +255,10 @@ private fun KartridRoot(
         if (permOk) runScan()
     }
 
+    // index di sini = index RELATIF ke daftar visible per sistem (difilter di bawah).
+    // Jangan pakai index list penuh — itu bikin kursor mendarat salah pas ganti tab.
     LaunchedEffect(tab) {
-        val first = games.indexOfFirst { it.system == tab.key && !it.hidden }
-        index = if (first >= 0) first else 0
+        index = 0
     }
 
     val counts = remember(games) {

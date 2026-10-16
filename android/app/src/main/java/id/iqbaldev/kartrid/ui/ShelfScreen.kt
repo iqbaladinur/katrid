@@ -177,8 +177,8 @@ fun ShelfScreen(
                 when (ev.nativeKeyEvent.keyCode) {
                     AKey.KEYCODE_DPAD_LEFT -> { move(-1); sfx.tick(); true }
                     AKey.KEYCODE_DPAD_RIGHT -> { move(1); sfx.tick(); true }
-                    AKey.KEYCODE_BUTTON_L1 -> { move(-5); sfx.tick(); true }
-                    AKey.KEYCODE_BUTTON_R1 -> { move(5); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_L1 -> { val i = Sys.order.indexOf(tab); onTab(Sys.order[(i + 2) % 3]); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_R1 -> { val i = Sys.order.indexOf(tab); onTab(Sys.order[(i + 1) % 3]); sfx.tick(); true }
                     AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> { play(); true }
                     AKey.KEYCODE_BUTTON_X -> { current?.let { onFav(it); sfx.tick() }; true }
                     AKey.KEYCODE_BUTTON_Y -> { onSearch(); sfx.tick(); true }
@@ -274,25 +274,42 @@ fun ShelfScreen(
                 .height(TOP_H.dp)
                 .padding(horizontal = 22.dp)
                 .drawBehind { drawRect(T.hairline, topLeft = Offset(0f, size.height - 1.5f), size = Size(size.width, 1.5f)) },
-            verticalAlignment = Alignment.Bottom,
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(22.dp),
         ) {
             for (s in Sys.order) {
                 val on = s == tab
-                Box(
+                Row(
                     Modifier
                         .clickable { onTab(s); sfx.tick() }
                         .drawBehind {
-                            if (on) drawRect(T.lime, topLeft = Offset(0f, size.height - 3f), size = Size(size.width, 3f))
+                            // pod angular ala console launcher (bukan underline web)
+                            if (on) drawRect(T.muted)
+                            val e = if (on) T.lime else T.hairline
+                            drawRect(e, topLeft = Offset(0f, 0f), size = Size(size.width, 1.5f))
+                            drawRect(e, topLeft = Offset(0f, size.height - 1.5f), size = Size(size.width, 1.5f))
+                            drawRect(e, topLeft = Offset(0f, 0f), size = Size(1.5f, size.height))
+                            drawRect(e, topLeft = Offset(size.width - 1.5f, 0f), size = Size(1.5f, size.height))
+                            if (on) drawRect(T.lime, topLeft = Offset(0f, 0f), size = Size(size.width, 4f))
                         }
-                        .padding(top = 10.dp, bottom = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Box(Modifier.size(10.dp, 10.dp).background(shellColor(s.shell, on)))
+                    Box(Modifier.width(8.dp))
                     Text(
-                        text = "${s.label} ${counts[s.key] ?: 0}",
+                        text = s.label,
+                        color = if (on) T.lime else T.fg.copy(alpha = 0.75f),
+                        fontFamily = MONO,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Box(Modifier.width(8.dp))
+                    Text(
+                        text = (counts[s.key] ?: 0).toString().padStart(2, '0'),
                         color = if (on) T.lime else T.mutedFg,
                         fontFamily = MONO,
-                        fontSize = 16.sp,
-                        letterSpacing = 1.2.sp,
+                        fontSize = 11.sp,
                     )
                 }
             }
@@ -303,14 +320,12 @@ fun ShelfScreen(
                     text = scanNote.ifBlank { "scanning…" },
                     color = T.mutedFg,
                     fontFamily = MONO,
-                    fontSize = 10.5.sp,
-                    modifier = Modifier.padding(bottom = 10.dp),
+                    fontSize = 11.sp,
                 )
             }
             Box(
                 Modifier
                     .size(30f.tdp)
-                    .padding(bottom = 6.dp)
                     .border(1.5.dp, T.hairline)
                     .clickable { onSettings(); sfx.tick() }
                     .drawBehind {
