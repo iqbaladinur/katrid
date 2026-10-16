@@ -105,6 +105,7 @@ fun SettingsScreen(
     var sel by remember { mutableStateOf(0) }
     var pickRow by remember { mutableStateOf<Row.Choices?>(null) }
     var pickSel by remember { mutableStateOf(0) }
+    var showHelp by remember { mutableStateOf(false) }
     val fr = remember { FocusRequester() }
     val scroll = rememberScrollState()
 
@@ -235,6 +236,13 @@ fun SettingsScreen(
             .focusable()
             .onPreviewKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (showHelp) {
+                    when (ev.nativeKeyEvent.keyCode) {
+                        AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER,
+                        AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { showHelp = false; sfx.tick(); true }
+                        else -> true
+                    }
+                } else {
                 val r = pickRow
                 if (r != null) {
                     when (ev.nativeKeyEvent.keyCode) {
@@ -269,6 +277,7 @@ fun SettingsScreen(
                         else -> false
                     }
                 }
+                }
             },
     ) {
         // top bar
@@ -285,6 +294,16 @@ fun SettingsScreen(
             Text("← SETTINGS", color = T.fg, fontFamily = MONO, fontSize = 13.sp, letterSpacing = 1.4.sp)
             Box(Modifier.weight(1f))
             Text("v0.1.0", color = T.mutedFg, fontFamily = MONO, fontSize = 11.sp)
+            Box(
+                Modifier
+                    .padding(start = 10.dp)
+                    .size(30.dp, 30.dp)
+                    .border(1.5.dp, T.hairline)
+                    .clickable { showHelp = true; sfx.tick() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("?", color = if (showHelp) T.lime else T.mutedFg, fontFamily = MONO, fontSize = 13.sp)
+            }
         }
 
         // nav kiri
@@ -352,20 +371,9 @@ fun SettingsScreen(
             }
         }
 
-        // hint
-        Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .offset(y = 588.dp),
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            HintItem("^ v", "select")
-            Box(Modifier.width(26.dp))
-            HintItem("< >", "group")
-            Box(Modifier.width(26.dp))
-            HintItem("A", "change")
-            Box(Modifier.width(26.dp))
-            HintItem("B", "back")
+        // popup help (dipakai gantinya hint bar bawah biar gak nutup menu)
+        if (showHelp) {
+            HelpOverlay(onClose = { showHelp = false }, sfx = sfx)
         }
 
         // modal pilih engine/core
@@ -530,6 +538,55 @@ private fun PickerOverlay(
             Box(Modifier.width(22.dp))
             HintItem("B", "cancel")
         }
+    }
+}
+
+/** popup bantuan kontrol (pengganti hint bar bawah yang nutupin menu) */
+@Composable
+private fun HelpOverlay(onClose: () -> Unit, sfx: Sfx) {
+    Box(Modifier.size(960.dp, 640.dp).background(T.bg.copy(alpha = 0.93f)))
+    Column(
+        Modifier
+            .offset(x = 330.dp, y = 120.dp)
+            .size(300.dp, 360.dp)
+            .background(T.surface)
+            .border(1.5.dp, T.hairline)
+            .padding(16.dp),
+    ) {
+        Text("CONTROLS", color = T.lime, fontFamily = MONO, fontSize = 12.sp, letterSpacing = 1.4.sp)
+        Box(Modifier.height(12.dp))
+        Caption("^ v", "select item")
+        Caption("< >", "switch section")
+        Caption("A", "change / pick")
+        Caption("B", "back")
+        Box(Modifier.height(16.dp))
+        Text("Or just tap a row to edit it.", color = T.mutedFg, fontFamily = SANS, fontSize = 13.sp)
+        Box(Modifier.weight(1f))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            HintItem("A / B", "close")
+        }
+    }
+}
+
+@Composable
+private fun Caption(key: String, label: String) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(46.dp, 22.dp)
+                .border(1.2.dp, T.hairline)
+                .background(T.muted),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(key, color = T.fg, fontFamily = MONO, fontSize = 11.sp)
+        }
+        Box(Modifier.width(10.dp))
+        Text(label, color = T.fg, fontFamily = SANS, fontSize = 14.sp)
     }
 }
 
