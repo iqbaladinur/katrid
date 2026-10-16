@@ -12,7 +12,9 @@ import android.os.Environment
 import android.view.KeyEvent
 import android.provider.Settings as ASettings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -85,6 +87,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+import java.io.File
 
 class MainActivity : ComponentActivity() {
 
@@ -252,6 +255,7 @@ private fun KartridRoot(
     var screen by remember { mutableStateOf(0) }
     var pickSys by remember { mutableStateOf<Sys?>(null) }
     var cacheBytes by remember { mutableStateOf(0L) }
+    var customArtTarget by remember { mutableStateOf<Game?>(null) }
 
     /** tulis artState terbaru ke state + disk (dari Main thread) */
     fun flushArt(r: MutableMap<String, String>) {
@@ -304,6 +308,53 @@ private fun KartridRoot(
         } finally {
             artRunning = false
         }
+    }
+
+    /** import gambar pilihan user → filesDir/custom, set artFile game itu */
+    fun importCustomArt(g: Game, uri: Uri) {
+        val mime = ctx.contentResolver.getType(uri)
+        val ext = when (mime) {
+            "image/png" -> "png"
+            "image/jpeg", "image/jpg" -> "jpg"
+            "image/webp" -> "webp"
+            else -> "png"
+        }
+        val dir = File(ctx.filesDir, "custom").apply { mkdirs() }
+        val f = File(dir, "${g.id}.$ext")
+        val ok = runCatching {
+            val n = ctx.contentResolver.openInputStream(uri)?.use { ins ->
+                f.outputStream().use { outs -> ins.copyTo(outs) }
+            }
+            (n ?: 0L) > 0
+        }.getOrDefault(false)
+        if (!ok) {
+            toast = "gagal import image"
+            return
+        }
+        artCache.invalidate(g.id)
+        val updated = games.map { if (it.id == g.id) it.copy(artFile = f.absolutePath, artState = ART_OK) else it }
+        games = updated
+        store.saveLibrary(Library(updated, store.library.scannedAt, store.library.folderStamp))
+        artVersion++
+        toast = "custom boxart di-set"
+    }
+
+    /** hapus custom art → artState NEVER biar pipeline auto-download nyoba art asli lagi */
+    fun clearCustomArt(g: Game) {
+        artCache.invalidate(g.id)
+        val updated = games.map { if (it.id == g.id) it.copy(artFile = null, artState = ART_NEVER) else it }
+        games = updated
+        store.saveLibrary(Library(updated, store.library.scannedAt, store.library.folderStamp))
+        artVersion++
+        toast = "custom boxart dihapus"
+        scope.launch { refreshArt() }
+    }
+
+    // system image picker (SAF) — pilih gambar custom boxart
+    val artPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val g = customArtTarget
+        customArtTarget = null
+        if (uri != null && g != null) importCustomArt(g, uri)
     }
 
     suspend fun runScan() {
@@ -443,6 +494,12 @@ private fun KartridRoot(
                     toast = "statistik main direset"
                 },
                 onFolderPick = { s -> pickSys = s },
+                games = games,
+                onSetArt = { g ->
+                    customArtTarget = g
+                    artPicker.launch("image/*")
+                },
+                onClearArt = { clearCustomArt(it) },
                 onClose = {
                     screen = 0
                     scope.launch {

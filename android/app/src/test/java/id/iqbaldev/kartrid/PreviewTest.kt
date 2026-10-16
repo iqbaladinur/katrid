@@ -213,6 +213,8 @@ class PreviewTest {
                     cacheBytes = 1_230_000L,
                     onUpdate = {}, onRescan = {}, onClearCache = {}, onResetStats = {},
                     onFolderPick = {}, onClose = {},
+                    games = games(),
+                    onSetArt = {}, onClearArt = {},
                     sfx = Sfx(ctx),
                 )
             }
@@ -300,11 +302,13 @@ class PreviewTest {
                 "mgba_libretro_android.so",
             ),
             cacheBytes = 1_230_000L,
-            onUpdate = {}, onRescan = {}, onClearCache = {}, onResetStats = {},
-            onFolderPick = {}, onClose = {},
-            sfx = Sfx(ctx),
-            initialGroup = initialGroup,
-            initialPick = initialPick,
+                                onUpdate = {}, onRescan = {}, onClearCache = {}, onResetStats = {},
+                                onFolderPick = {}, onClose = {},
+                                games = games(),
+                                onSetArt = {}, onClearArt = {},
+                                sfx = Sfx(ctx),
+                                initialGroup = initialGroup,
+                                initialPick = initialPick,
         )
     }
 }

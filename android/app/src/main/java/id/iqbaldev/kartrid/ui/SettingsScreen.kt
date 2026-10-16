@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,13 +34,17 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.iqbaldev.kartrid.core.Game
 import id.iqbaldev.kartrid.core.RetroArch
 import id.iqbaldev.kartrid.core.Settings
 import id.iqbaldev.kartrid.core.Sys
@@ -95,6 +100,9 @@ fun SettingsScreen(
     onClearCache: () -> Unit,
     onResetStats: () -> Unit,
     onFolderPick: (Sys) -> Unit,
+    games: List<Game>,
+    onSetArt: (Game) -> Unit,
+    onClearArt: (Game) -> Unit,
     onClose: () -> Unit,
     sfx: Sfx,
     initialGroup: Int = 0,
@@ -106,6 +114,16 @@ fun SettingsScreen(
     var pickRow by remember { mutableStateOf<Row.Choices?>(null) }
     var pickSel by remember { mutableStateOf(0) }
     var showHelp by remember { mutableStateOf(false) }
+    var artPick by remember { mutableStateOf(false) }
+    var artClear by remember { mutableStateOf(false) }
+    var artSel by remember { mutableStateOf(0) }
+    var artQuery by remember { mutableStateOf("") }
+    val artSearchFr = remember { FocusRequester() }
+    val artKb = LocalSoftwareKeyboardController.current
+    val artList = remember(games, artQuery) {
+        if (artQuery.isBlank()) games
+        else games.filter { it.title.contains(artQuery.trim(), ignoreCase = true) }
+    }
     val fr = remember { FocusRequester() }
     val scroll = rememberScrollState()
 
@@ -212,6 +230,8 @@ fun SettingsScreen(
             )
             add(Row.Info(name = "Cache size", sub = "boxart kept in the app's internal storage", value = fmtSize(cacheBytes)))
             add(Row.Action(name = "Clear boxart cache", sub = "delete all downloaded thumbnails", label = "DELETE", run = onClearCache))
+            add(Row.Action(name = "Set custom boxart", sub = "pick a game, then choose an image file", label = "SET", run = { artPick = true; artSel = 0 }))
+            add(Row.Action(name = "Remove custom boxart", sub = "back to auto-download for a game", label = "CLEAR", run = { artClear = true; artSel = 0 }))
         }
         else -> buildList {
             add(Row.Info(name = "Kartrid", sub = "GB/GBC/GBA frontend for RetroArch", value = "v0.1.0"))
@@ -240,6 +260,22 @@ fun SettingsScreen(
                     when (ev.nativeKeyEvent.keyCode) {
                         AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER,
                         AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { showHelp = false; sfx.tick(); true }
+                        else -> true
+                    }
+                } else {
+                if (artPick || artClear) {
+                    when (ev.nativeKeyEvent.keyCode) {
+                        AKey.KEYCODE_DPAD_UP -> { artSel = (artSel - 1).coerceAtLeast(0); sfx.tick(); true }
+                        AKey.KEYCODE_DPAD_DOWN -> { artSel = (artSel + 1).coerceAtMost((artList.size - 1).coerceAtLeast(0)); sfx.tick(); true }
+                        AKey.KEYCODE_BUTTON_L1 -> { artSel = (artSel - 10).coerceAtLeast(0); true }
+                        AKey.KEYCODE_BUTTON_R1 -> { artSel = (artSel + 10).coerceAtMost((artList.size - 1).coerceAtLeast(0)); true }
+                        AKey.KEYCODE_BUTTON_Y -> { artSearchFr.requestFocus(); artKb?.show(); true }
+                        AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> {
+                            artList.getOrNull(artSel)?.let { if (artClear) onClearArt(it) else onSetArt(it) }
+                            artPick = false; artClear = false
+                            sfx.tick(); true
+                        }
+                        AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { artKb?.hide(); artPick = false; artClear = false; sfx.tick(); true }
                         else -> true
                     }
                 } else {
@@ -276,6 +312,7 @@ fun SettingsScreen(
                         AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { onClose(); sfx.tick(); true }
                         else -> false
                     }
+                }
                 }
                 }
             },
@@ -392,6 +429,24 @@ fun SettingsScreen(
                 sfx = sfx,
             )
         }
+
+        // modal custom boxart (pilih game)
+        if (artPick || artClear) {
+            GamePickerModal(
+                title = if (artClear) "REMOVE CUSTOM BOXART" else "SET CUSTOM BOXART",
+                games = artList,
+                sel = artSel.coerceIn(0, (artList.size - 1).coerceAtLeast(0)),
+                query = artQuery,
+                onQuery = { artQuery = it },
+                searchFr = artSearchFr,
+                onPick = { i ->
+                    artList.getOrNull(i)?.let { if (artClear) onClearArt(it) else onSetArt(it) }
+                    artPick = false; artClear = false
+                },
+                onClose = { artKb?.hide(); artPick = false; artClear = false },
+                sfx = sfx,
+            )
+        }
     }
 
     // ikutin seleksi pas scroll (perkiraan posisi baris)
@@ -412,6 +467,10 @@ fun SettingsScreen(
                 pickSel = r.options.indexOf(r.current).coerceAtLeast(0)
             }
         }
+    }
+
+    LaunchedEffect(artPick, artClear) {
+        artSel = 0
     }
 }
 
@@ -623,4 +682,98 @@ fun fmtSize(bytes: Long): String = when {
     bytes >= 1024L * 1024L -> "%.1f MB".format(bytes / 1024f / 1024f)
     bytes >= 1024L -> "%.0f KB".format(bytes / 1024f)
     else -> "$bytes B"
+}
+
+/** modal pilih game buat custom boxart (▲▼ + L1/R1 page + Y focus search) */
+@Composable
+private fun GamePickerModal(
+    title: String,
+    games: List<Game>,
+    sel: Int,
+    query: String,
+    onQuery: (String) -> Unit,
+    searchFr: FocusRequester,
+    onPick: (Int) -> Unit,
+    onClose: () -> Unit,
+    sfx: Sfx,
+) {
+    val rows = 9
+    val start = (sel - 3).coerceIn(0, (games.size - rows).coerceAtLeast(0))
+    val visible = games.slice(start until (start + rows).coerceAtMost(games.size))
+    val boxH = (rows * 52 + 150).coerceAtMost(580)
+
+    Box(Modifier.size(960.dp, 640.dp).background(T.bg.copy(alpha = 0.94f)))
+    Box(
+        Modifier
+            .offset(x = 210.dp, y = ((640 - boxH) / 2f).dp)
+            .size(540.dp, boxH.dp)
+            .background(T.surface)
+            .border(1.5.dp, T.hairline),
+    ) {
+        Column(Modifier.fillMaxSize().padding(18.dp)) {
+            Text(title, color = T.lime, fontFamily = MONO, fontSize = 14.sp, letterSpacing = 1.4.sp)
+            Row(
+                Modifier
+                    .padding(top = 12.dp)
+                    .fillMaxWidth()
+                    .height(38.dp)
+                    .background(T.muted)
+                    .border(1.5.dp, T.hairline)
+                    .padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(">", color = T.lime, fontFamily = MONO, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Box(Modifier.width(8.dp))
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQuery,
+                    modifier = Modifier.fillMaxWidth().focusRequester(searchFr),
+                    textStyle = TextStyle(color = T.fg, fontFamily = MONO, fontSize = 12.sp),
+                    cursorBrush = SolidColor(T.lime),
+                    singleLine = true,
+                    decorationBox = { inner ->
+                        Box(Modifier.fillMaxWidth()) {
+                            if (query.isEmpty()) {
+                                Text("SEARCH TITLE…", color = T.mutedFg, fontFamily = MONO, fontSize = 12.sp)
+                            }
+                            inner()
+                        }
+                    },
+                )
+            }
+            Column(Modifier.padding(top = 10.dp)) {
+                for ((i, g) in visible.withIndex()) {
+                    val on = (i + start) == sel
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .drawBehind { if (on) drawRect(T.muted) }
+                            .clickable { onPick(i + start); sfx.tick() }
+                            .padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(g.sys.label, color = T.mutedFg, fontFamily = MONO, fontSize = 10.sp)
+                        Box(Modifier.width(10.dp))
+                        Text(
+                            text = g.title,
+                            color = if (on) T.lime else T.fg,
+                            fontFamily = MONO,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+            Box(Modifier.weight(1f))
+            Text(
+                text = "${games.size} games · ▲▼ move · L1/R1 page · Y search · A select · B close",
+                color = T.mutedFg,
+                fontFamily = MONO,
+                fontSize = 9.sp,
+            )
+        }
+    }
 }

@@ -39,6 +39,11 @@ class ArtCache(ctx: Context) {
         dir.listFiles()?.forEach { it.delete() }
     }
 
+    /** buang bitmap dari memori kalau art diganti/dihapus manual */
+    fun invalidate(id: String) {
+        mem.remove(id)
+    }
+
     /** bitmap dari disk/memori (null kalau belum ada) */
     fun get(g: Game): Bitmap? {
         mem.get(g.id)?.let { return it }
