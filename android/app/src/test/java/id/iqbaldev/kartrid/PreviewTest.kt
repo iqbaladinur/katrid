@@ -128,6 +128,24 @@ class PreviewTest {
     }
 
     @Test
+    fun cartStyleCPreview() {
+        captureRoboImage("/home/iqbaladinur/hobbies/kartrid/previews/10-cart-style-C.png") {
+            MockCanvas {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Cartridge(
+                        sys = Sys.GBA,
+                        art = art("gba_Pokemon_-_Emerald_Version__USA__Europe_.png"),
+                        w = 288f,
+                        h = 206f,
+                        focused = true,
+                        style = CartStyle.C,
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun settingsPreview() {
         captureRoboImage("/home/iqbaladinur/hobbies/kartrid/previews/02-settings.png") {
             MockCanvas {

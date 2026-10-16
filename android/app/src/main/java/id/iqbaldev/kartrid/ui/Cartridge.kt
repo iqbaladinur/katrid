@@ -3,8 +3,10 @@ package id.iqbaldev.kartrid.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,12 +39,14 @@ import id.iqbaldev.kartrid.core.Sys
  * Kartrid GBA/GB: shell + notch + label boxart + band nama sistem.
  * `clipFrac` 0..1 = bagian bawah yang ketutup (animasi masuk slot, PLAN §3b).
  *
- * Dua style (probing 17 Okt 2026):
- * - A: kotak bersih, boxart FULL (Fit, nggak ke-crop), band + notch
- * - B: siluet kartrid GBA (atas rounded, bawah bevel) + kontak emas + shade halus
- * Kedua style pakai Fit biar art keliatan utuh & jelas.
+ * Tiga style (probing 17 Okt 2026):
+ * - A: kotak bersih, boxart FULL (Fit, nggak ke-crop)
+ * - B: siluet GBA (atas rounded, bawah bevel) + kontak emas + shade
+ * - C "RetroShell": shell abu gradasi rounded-top, label beige, boxart KECIL
+ *   (~46% lebar, nggak penuh) + pin kontak gold — simplifikasi dari referensi
+ *   kartrid retro (index.html/user, 17 Okt 2026). Semua style pakai Fit.
  */
-enum class CartStyle { A, B }
+enum class CartStyle { A, B, C }
 
 @Composable
 fun Cartridge(
@@ -55,16 +59,17 @@ fun Cartridge(
     clipFrac: Float = 0f,
     showNotch: Boolean = focused,
     showBand: Boolean = focused,
-    style: CartStyle = CartStyle.B,
+    style: CartStyle = CartStyle.C,
 ) {
     val outlineRoom = if (focused) 12f else 0f
-    val shape: Shape = when {
-        style == CartStyle.B ->
+    val shape: Shape = when (style) {
+        CartStyle.A -> if (sys.rounded) RoundedCornerShape(8.dp) else RectangleShape
+        CartStyle.B ->
             RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomEnd = 3.dp, bottomStart = 3.dp)
-        sys.rounded -> RoundedCornerShape(8.dp)
-        else -> RectangleShape
+        CartStyle.C ->
+            RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 4.dp, bottomStart = 4.dp)
     }
-    val shell = shellColor(sys.shell, focused)
+    val shell: Color = shellColor(sys.shell, focused)
     val shadow = if (focused) 8f else 5f
 
     Box(modifier = modifier.size((w + outlineRoom).dp, (h + outlineRoom).dp)) {
@@ -100,68 +105,59 @@ fun Cartridge(
                     }
                 }
                 .clip(shape)
-                .background(shell)
+                .then(
+                    if (style == CartStyle.C) {
+                        Modifier.background(
+                            Brush.verticalGradient(
+                                listOf(Color(0xFFD0CDBC), Color(0xFFB4B0A0), Color(0xFF9B978B)),
+                            ),
+                        )
+                    } else {
+                        Modifier.background(shell)
+                    },
+                )
                 .border(2.dp, T.black, shape),
         ) {
-            // label + boxart (Fit = art utuh, nggak ke-crop)
+            // label + boxart
             Box(
                 Modifier
                     .fillMaxSize()
                     .padding(10.dp)
-                    .border(2.dp, Color(0x99000000))
-                    .background(T.labelBg),
+                    .border(2.dp, if (style == CartStyle.C) Color(0xB3171711) else Color(0x99000000))
+                    .background(if (style == CartStyle.C) Color(0xFFDED9C8) else T.labelBg),
             ) {
-                if (art != null) {
-                    Image(
-                        bitmap = art,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit,
-                        colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
-                    )
-                    if (style == CartStyle.B) {
-                        // kontak emas ala kartrid GBA asli
-                        Box(
-                            Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 6.dp)
-                                .width((w * 0.22f).dp)
-                                .height(9.dp)
-                                .background(Color(0xFFD9AE4E))
-                                .border(1.dp, Color(0x66000000)),
+                when {
+                    art == null -> PlaceholderView(sys, focused)
+                    style == CartStyle.C -> CartLabelC(sys, art, w, h, focused)
+                    else -> {
+                        Image(
+                            bitmap = art,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit,
+                            colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
                         )
-                        // shade halus di atas label biar nggak flat
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(26.dp)
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(Color(0x33000000), Color(0x00000000)),
-                                    ),
-                                ),
-                        )
-                    }
-                } else {
-                    // placeholder: monogram sistem + caption (belum ada boxart)
-                    Box(
-                        Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = sys.label,
-                                color = T.mutedFg.copy(alpha = if (focused) 0.85f else 0.5f),
-                                fontFamily = DISPLAY,
-                                fontSize = if (sys.rounded) 22.sp else 26.sp,
-                                letterSpacing = 2.sp,
+                        if (style == CartStyle.B) {
+                            Box(
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 6.dp)
+                                    .width((w * 0.22f).dp)
+                                    .height(9.dp)
+                                    .background(Color(0xFFD9AE4E))
+                                    .border(1.dp, Color(0x66000000)),
                             )
-                            Text(
-                                text = "NO ART",
-                                color = T.mutedFg.copy(alpha = if (focused) 0.55f else 0.35f),
-                                fontFamily = MONO,
-                                fontSize = 7.5.sp,
-                                letterSpacing = 2.2.sp,
+                        }
+                        if (style == CartStyle.B) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(26.dp)
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(Color(0x33000000), Color(0x00000000)),
+                                        ),
+                                    ),
                             )
                         }
                     }
@@ -189,6 +185,30 @@ fun Cartridge(
                 }
             }
 
+            // pin kontak gold ala PCB (style C, di bawah shell)
+            if (style == CartStyle.C) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .height(9.dp)
+                        .background(Color(0xFF191912)),
+                ) {
+                    Row(
+                        Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        repeat(6) {
+                            Box(Modifier.width(12.dp).height(5.dp).background(Color(0xFFC9A94B)))
+                        }
+                    }
+                }
+            }
+
             // notch / grip atas-kiri
             if (showNotch) {
                 Box(
@@ -199,6 +219,77 @@ fun Cartridge(
                         .border(2.dp, T.black),
                 )
             }
+        }
+    }
+}
+
+/** label beige + boxart kecil (nggak penuh) + teks mikro — style C */
+@Composable
+private fun CartLabelC(sys: Sys, art: ImageBitmap, w: Float, h: Float, focused: Boolean) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = sys.longLabel,
+            color = Color(0xFF4A4230),
+            fontFamily = MONO,
+            fontSize = 5.4.sp,
+            letterSpacing = 1.2.sp,
+            maxLines = 1,
+        )
+        Box(
+            Modifier
+                .padding(vertical = 5.dp)
+                .width((w * 0.46f).dp)
+                .height((h * 0.5f).dp)
+                .border(1.5.dp, Color(0x99000000))
+                .background(Color(0xFF141414)),
+        ) {
+            Image(
+                bitmap = art,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+                colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
+            )
+        }
+        Text(
+            text = "8-BIT · ${sys.ext.uppercase()}",
+            color = Color(0xFF4A4230),
+            fontFamily = MONO,
+            fontSize = 4.4.sp,
+            letterSpacing = 1.1.sp,
+            maxLines = 1,
+        )
+    }
+}
+
+/** placeholder: monogram sistem + caption (belum ada boxart) */
+@Composable
+private fun PlaceholderView(sys: Sys, focused: Boolean) {
+    Box(
+        Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = sys.label,
+                color = T.mutedFg.copy(alpha = if (focused) 0.85f else 0.5f),
+                fontFamily = DISPLAY,
+                fontSize = if (sys.rounded) 22.sp else 26.sp,
+                letterSpacing = 2.sp,
+            )
+            Text(
+                text = "NO ART",
+                color = T.mutedFg.copy(alpha = if (focused) 0.55f else 0.35f),
+                fontFamily = MONO,
+                fontSize = 7.5.sp,
+                letterSpacing = 2.2.sp,
+            )
         }
     }
 }
