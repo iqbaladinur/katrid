@@ -407,20 +407,20 @@ private fun CartridgeSwitch(
             .clip(shape)
             .border(1.5.dp, Color(0x88171711), shape),
     ) {
-        // body plastik putih ala kartrid Switch
+        // body plastik putih ala kartrid Switch (cool white)
         Box(
             Modifier
                 .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color(0xFFFBFBF7), Color(0xFFE7E5DD)))),
+                .background(Brush.verticalGradient(listOf(Color(0xFFFDFDFB), Color(0xFFE9E7E0)))),
         )
-        // top cap = warna sistem (strip ala kartrid Switch)
+        // top cap MERAH ala kartrid Switch asli (bukan warna per-sistem)
         Box(
             Modifier
                 .fillMaxWidth()
                 .height(capH.dp)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color(sys.shell).copy(alpha = 0.55f), Color(sys.shell)),
+                        listOf(Color(0xFFE60012).copy(alpha = 0.92f), Color(0xFFB8000D)),
                     ),
                 ),
             contentAlignment = Alignment.Center,
