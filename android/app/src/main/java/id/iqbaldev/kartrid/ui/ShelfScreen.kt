@@ -177,8 +177,8 @@ fun ShelfScreen(
                 when (ev.nativeKeyEvent.keyCode) {
                     AKey.KEYCODE_DPAD_LEFT -> { move(-1); sfx.tick(); true }
                     AKey.KEYCODE_DPAD_RIGHT -> { move(1); sfx.tick(); true }
-                    AKey.KEYCODE_BUTTON_L1 -> { val i = Sys.order.indexOf(tab); onTab(Sys.order[(i + 2) % 3]); sfx.tick(); true }
-                    AKey.KEYCODE_BUTTON_R1 -> { val i = Sys.order.indexOf(tab); onTab(Sys.order[(i + 1) % 3]); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_L1, AKey.KEYCODE_BUTTON_L2 -> { val i = Sys.order.indexOf(tab); onTab(Sys.order[(i + 2) % 3]); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_R1, AKey.KEYCODE_BUTTON_R2 -> { val i = Sys.order.indexOf(tab); onTab(Sys.order[(i + 1) % 3]); sfx.tick(); true }
                     AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> { play(); true }
                     AKey.KEYCODE_BUTTON_X -> { current?.let { onFav(it); sfx.tick() }; true }
                     AKey.KEYCODE_BUTTON_Y -> { onSearch(); sfx.tick(); true }
