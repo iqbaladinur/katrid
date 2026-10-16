@@ -39,6 +39,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -328,16 +329,11 @@ fun ShelfScreen(
                 Modifier
                     .size(30f.tdp)
                     .border(1.5.dp, T.hairline)
-                    .clickable { onSettings(); sfx.tick() }
-                    .drawBehind {
-                        val x0 = size.width * 0.27f
-                        val x1 = size.width * 0.73f
-                        for (k in 0..2) {
-                            val y = size.height * (0.36f + 0.14f * k)
-                            drawRect(T.mutedFg, topLeft = Offset(x0, y), size = Size(x1 - x0, 1.8f))
-                        }
-                    },
-            )
+                    .clickable { onSettings(); sfx.tick() },
+                contentAlignment = Alignment.Center,
+            ) {
+                CogIcon()
+            }
         }
 
         // ---- judul + meta ----
@@ -452,6 +448,35 @@ internal fun HintItem(key: String, label: String) {
         Box(Modifier.width(6.dp))
         Text(label, color = T.mutedFg, fontFamily = MONO, fontSize = 11.sp)
     }
+}
+
+@Composable
+private fun CogIcon(color: Color = T.mutedFg) {
+    Box(
+        Modifier
+            .size(30f.tdp)
+            .drawBehind {
+                val c = center
+                val minR = size.minDimension / 2f
+                val body = minR * 0.34f
+                val toothLen = minR * 0.47f
+                val toothW = minR * 0.15f
+                val toothH = minR * 0.17f
+                // 8 gigi gear, diputar 45° tiap gigi
+                for (k in 0 until 8) {
+                    rotate(k * 45f, pivot = c) {
+                        drawRect(
+                            color,
+                            topLeft = Offset(c.x - toothW / 2f, c.y - toothLen),
+                            size = Size(toothW, toothH),
+                        )
+                    }
+                }
+                // badan gear + lubang tengah (warna surface biar 'bolong')
+                drawCircle(color, radius = body, center = c)
+                drawCircle(T.surface, radius = body * 0.42f, center = c)
+            },
+    )
 }
 
 @Composable
