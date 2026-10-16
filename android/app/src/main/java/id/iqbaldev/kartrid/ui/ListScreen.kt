@@ -49,6 +49,7 @@ import id.iqbaldev.kartrid.core.Game
 import id.iqbaldev.kartrid.core.Sys
 import id.iqbaldev.kartrid.core.Tab
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 private const val ROWS = 8
@@ -133,7 +134,7 @@ fun ListScreen(
                         sfx.tick()
                         true
                     }
-                    AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { onClose(); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { kb?.hide(); onClose(); sfx.tick(); true }
                     else -> false
                 }
             },
@@ -329,8 +330,10 @@ fun ListScreen(
     }
 
     LaunchedEffect(Unit) {
+        runCatching { fr.requestFocus() }
+        // tunggu input connection siap, baru fokus field + munculin keyboard
+        delay(300)
         runCatching { searchFr.requestFocus() }
         kb?.show()
-        runCatching { fr.requestFocus() }
     }
 }
