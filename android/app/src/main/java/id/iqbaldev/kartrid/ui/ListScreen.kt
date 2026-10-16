@@ -46,7 +46,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private const val ROWS = 8
-private const val ROW_H = 80f
+private const val ROW_H = 72f
 
 /**
  * S3 Cari & Daftar — versi D-pad: daftar berjendela + rail A–Z.
@@ -249,7 +249,7 @@ fun ListScreen(
         Row(
             Modifier
                 .fillMaxWidth()
-                .offset(y = 610.dp),
+                .offset(y = 592.dp),
             horizontalArrangement = Arrangement.Center,
         ) {
             HintItem("▲ ▼", "geser")

@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -139,8 +141,13 @@ fun FolderPicker(
             )
             Box(Modifier.height(12.dp))
 
-            // daftar
-            Column(Modifier.fillMaxWidth()) {
+            // daftar (scroll: jangan dorong tombol keluar panel kalau folder banyak)
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+            ) {
                 PickerRow(".. (naik satu folder)", sel == 0) { sel = 0; up() }
                 dirs.forEachIndexed { i, d ->
                     PickerRow("${d.name}/", sel == i + 1) {

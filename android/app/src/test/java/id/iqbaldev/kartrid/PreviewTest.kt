@@ -165,6 +165,15 @@ class PreviewTest {
         }
     }
 
+    @Test
+    fun permissionPreview() {
+        captureRoboImage("/home/iqbaladinur/hobbies/kartrid/previews/07-permission.png") {
+            MockCanvas {
+                PermPanel(onOpen = {}, onSkip = {})
+            }
+        }
+    }
+
     @Composable
     private fun settingsBlock(initialGroup: Int = 0, initialPick: String? = null) {
         SettingsScreen(

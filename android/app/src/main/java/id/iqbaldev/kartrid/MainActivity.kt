@@ -425,7 +425,7 @@ private fun KartridRoot(
 }
 
 @Composable
-private fun PermPanel(onOpen: () -> Unit, onSkip: () -> Unit) {
+internal fun PermPanel(onOpen: () -> Unit, onSkip: () -> Unit) {
     Box(Modifier.fillMaxWidth().offset(y = 240.dp).padding(horizontal = 210.dp)) {
         Column(
             Modifier

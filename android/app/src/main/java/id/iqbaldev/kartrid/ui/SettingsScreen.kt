@@ -354,9 +354,9 @@ fun SettingsScreen(
 
         // hint
         Row(
-            Modifier
-                .fillMaxWidth()
-                .offset(y = 610.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .offset(y = 588.dp),
             horizontalArrangement = Arrangement.Center,
         ) {
             HintItem("▲ ▼", "pilih")
@@ -481,12 +481,13 @@ private fun PickerOverlay(
     val maxRows = 7
     val start = (selected - 2).coerceIn(0, (options.size - maxRows).coerceAtLeast(0))
     val visible = options.slice(start until (start + maxRows).coerceAtMost(options.size))
+    val boxH = (visible.size * 72 + 116).coerceAtMost(560)
 
     Box(Modifier.size(960.dp, 640.dp).background(T.bg.copy(alpha = 0.93f)))
     Column(
         Modifier
-            .offset(x = 270.dp, y = 110.dp)
-            .size(420.dp, (visible.size * 64 + 96).dp)
+            .offset(x = 250.dp, y = ((640 - boxH) / 2f).dp)
+            .size(460.dp, boxH.dp)
             .background(T.surface)
             .border(1.5.dp, T.hairline)
             .padding(16.dp),

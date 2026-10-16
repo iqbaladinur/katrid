@@ -63,6 +63,13 @@ const val TOUCH = 1.5f
 val Float.tdp: Dp get() = (this * TOUCH).dp
 
 /**
+ * sp yang digambar 1:1 px sama kayak body text yang "terlalu kecil" secara
+ * persepsi di layar 240dpi. Naikkan global supaya teks kebaca seperti app
+ * normal (17sp terasa 17sp, bukan 17px).
+ */
+const val TEXT_SCALE = 1.25f
+
+/**
  * Kanvas desain 960x640 px (layar KONKR Pocket Advance).
  * Density di-override supaya 1.dp == 1 px mockup — jadi semua angka di kode
  * sama persis dengan mockup. Di layar lain seluruh UI di-scale proporsional
@@ -80,7 +87,7 @@ fun MockCanvas(content: @Composable () -> Unit) {
         val sw = if (wPx > 0f) wPx / BASE_W else 1f
         val sh = if (hPx > 0f) hPx / BASE_H else sw
         val scale = minOf(sw, sh).coerceAtLeast(0.05f)
-        CompositionLocalProvider(LocalDensity provides Density(scale, 1f)) {
+        CompositionLocalProvider(LocalDensity provides Density(scale, TEXT_SCALE)) {
             Box(modifier = Modifier.size(BASE_W.dp, BASE_H.dp)) { content() }
         }
     }

@@ -328,7 +328,7 @@ fun ShelfScreen(
         Column(
             Modifier
                 .fillMaxWidth()
-                .offset(y = 524.dp),
+                .offset(y = 508.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (current != null) {
@@ -428,18 +428,18 @@ internal fun HintItem(key: String, label: String) {
             Modifier
                 .border(1.5.dp, T.hairline)
                 .background(T.surface)
-                .padding(horizontal = 12f.tdp, vertical = 6f.tdp),
+                .padding(horizontal = 8f.tdp, vertical = 4f.tdp),
         ) {
-            Text(key, color = T.fg, fontFamily = MONO, fontSize = 15.sp)
+            Text(key, color = T.fg, fontFamily = MONO, fontSize = 13.sp)
         }
-        Box(Modifier.width(8.dp))
-        Text(label, color = T.mutedFg, fontFamily = MONO, fontSize = 15.sp)
+        Box(Modifier.width(6.dp))
+        Text(label, color = T.mutedFg, fontFamily = MONO, fontSize = 13.sp)
     }
 }
 
 @Composable
 private fun ListSpacer() {
-    Box(Modifier.width(30.dp))
+    Box(Modifier.width(18.dp))
 }
 
 @Composable
