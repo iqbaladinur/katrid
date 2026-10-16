@@ -62,14 +62,14 @@ import kotlin.math.sign
 // geometri (px, basis kanvas 960x640 — PLAN §3b)
 private const val TOP_H = 52f
 private const val CENTER_X = 480f
-private const val CART_BOTTOM = 500f
+private const val CART_BOTTOM = 380f
 private const val FOCUS_W = 288f
 private const val FOCUS_H = 206f
 private const val ITEM_W = 196f
 private const val GAP = 34f
 private const val SLOT_W = 204f
 private const val SLOT_H = 18f
-private const val SLOT_TOP = 500f
+private const val SLOT_TOP = 380f
 
 private fun widthAt(d: Float): Float {
     val t = d.coerceIn(0f, 1f)
@@ -328,7 +328,7 @@ fun ShelfScreen(
         Column(
             Modifier
                 .fillMaxWidth()
-                .offset(y = 508.dp),
+                .offset(y = 470.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (current != null) {
@@ -426,21 +426,21 @@ internal fun HintItem(key: String, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
-                .size(50.dp, 32.dp)
-                .border(1.5.dp, T.hairline)
+                .size(46.dp, 22.dp)
+                .border(1.2.dp, T.hairline)
                 .background(T.surface),
             contentAlignment = Alignment.Center,
         ) {
-            Text(key, color = T.fg, fontFamily = MONO, fontSize = 13.sp)
+            Text(key, color = T.fg, fontFamily = MONO, fontSize = 11.sp)
         }
-        Box(Modifier.width(8.dp))
-        Text(label, color = T.mutedFg, fontFamily = MONO, fontSize = 13.sp)
+        Box(Modifier.width(6.dp))
+        Text(label, color = T.mutedFg, fontFamily = MONO, fontSize = 11.sp)
     }
 }
 
 @Composable
 private fun ListSpacer() {
-    Box(Modifier.width(28.dp))
+    Box(Modifier.width(24.dp))
 }
 
 @Composable
