@@ -52,8 +52,10 @@ import androidx.compose.ui.graphics.asImageBitmap
  *   kartrid retro (index.html/user, 17 Okt 2026). Semua style pakai Fit.
  * - D "3D": shell photoreal hasil render (drawable-nodpi/cart_gba.png) + boxart
  *   di-overlay pas label rect — 17 Okt 2026, user: "cari file 3d cartridge gba".
+ * - E "Switch": kartrid ala Nintendo Switch — card rounded tipis, top cap WARNA
+ *   per-sistem (sys.shell), area art rounded di bawah + micro label — 17 Okt.
  */
-enum class CartStyle { A, B, C, D }
+enum class CartStyle { A, B, C, D, E }
 
 @Composable
 fun Cartridge(
@@ -66,10 +68,14 @@ fun Cartridge(
     clipFrac: Float = 0f,
     showNotch: Boolean = focused,
     showBand: Boolean = focused,
-    style: CartStyle = CartStyle.D,
+    style: CartStyle = CartStyle.E,
 ) {
     if (style == CartStyle.D) {
         Cartridge3D(sys, art, w, h, focused, modifier, clipFrac)
+        return
+    }
+    if (style == CartStyle.E) {
+        CartridgeSwitch(sys, art, w, h, focused, modifier, clipFrac)
         return
     }
     val outlineRoom = if (focused) 12f else 0f
@@ -80,6 +86,7 @@ fun Cartridge(
         CartStyle.C ->
             RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 4.dp, bottomStart = 4.dp)
         CartStyle.D -> RoundedCornerShape(8.dp) // unreachable (early return), biar exhaustive
+        CartStyle.E -> RoundedCornerShape(8.dp) // unreachable (early return), biar exhaustive
     }
     val shell: Color = shellColor(sys.shell, focused)
     val shadow = if (focused) 8f else 5f
@@ -367,6 +374,108 @@ private fun Cartridge3D(
                     )
                 }
             }
+        }
+    }
+}
+
+/** Style E: kartrid ala Nintendo Switch — card rounded, top cap warna sistem, art bawah */
+@Composable
+private fun CartridgeSwitch(
+    sys: Sys,
+    art: ImageBitmap?,
+    w: Float,
+    h: Float,
+    focused: Boolean,
+    modifier: Modifier = Modifier,
+    clipFrac: Float = 0f,
+) {
+    val shape = RoundedCornerShape(20.dp)
+    val capH = h * 0.17f
+    val artY = capH + 7f
+    val artH = h - artY - 26f
+
+    Box(
+        modifier
+            .size(w.dp, h.dp)
+            .drawWithContent {
+                val bottom = size.height * (1f - clipFrac.coerceIn(0f, 1f))
+                clipRect(right = size.width, bottom = bottom) { this@drawWithContent.drawContent() }
+            }
+            .clip(shape)
+            .border(1.5.dp, Color(0x88171711), shape),
+    ) {
+        // body plastik off-white
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Brush.verticalGradient(listOf(Color(0xFFF7F5EF), Color(0xFFDCDAD1)))),
+        )
+        // top cap = warna sistem
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(capH.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color(sys.shell).copy(alpha = 0.55f), Color(sys.shell)),
+                    ),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = sys.longLabel,
+                color = Color(0xEEFFFFFF),
+                fontFamily = MONO,
+                fontSize = 5.6.sp,
+                letterSpacing = 1.4.sp,
+                maxLines = 1,
+            )
+        }
+        // area art rounded
+        Box(
+            Modifier
+                .offset(y = artY.dp)
+                .padding(horizontal = 9.dp)
+                .fillMaxWidth()
+                .height(artH.dp)
+                .clip(RoundedCornerShape(13.dp))
+                .background(Color(0xFF101014)),
+        ) {
+            if (art != null) {
+                Image(
+                    bitmap = art,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit,
+                    colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
+                )
+            } else {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = sys.label,
+                        color = T.mutedFg.copy(alpha = 0.8f),
+                        fontFamily = DISPLAY,
+                        fontSize = 24.sp,
+                        letterSpacing = 2.sp,
+                    )
+                }
+            }
+        }
+        // micro label bawah
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .offset(y = (h - 21f).dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "KARTRID · ${sys.ext.uppercase()}",
+                color = Color(0x8C171711),
+                fontFamily = MONO,
+                fontSize = 3.8.sp,
+                letterSpacing = 1.1.sp,
+                maxLines = 1,
+            )
         }
     }
 }

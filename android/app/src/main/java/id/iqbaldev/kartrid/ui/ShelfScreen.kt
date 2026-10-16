@@ -67,11 +67,11 @@ import kotlin.math.sign
 private const val TOP_H = 84f
 private const val FAV_SHELL = 0xFFFFC94D
 private const val CENTER_X = 480f
-// kartrid PORTRAIT 3D (asset cart_gba.png 0.769:1) — "memanjang vertical" versi beneran
+// kartrid PORTRAIT — Switch-card style (0.72:1)
 private const val CART_BOTTOM = 380f
 private const val FOCUS_W = 176f
-private const val FOCUS_H = 229f
-private const val ITEM_W = 120f
+private const val FOCUS_H = 244f
+private const val ITEM_W = 118f
 private const val GAP = 40f
 private const val SLOT_W = 136f
 private const val SLOT_H = 16f
