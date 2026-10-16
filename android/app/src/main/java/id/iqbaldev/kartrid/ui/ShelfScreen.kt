@@ -62,7 +62,8 @@ import kotlin.math.roundToInt
 import kotlin.math.sign
 
 // geometri (px, basis kanvas 960x640 — PLAN §3b)
-private const val TOP_H = 52f
+// TOP_H = 22 (gutter atas, disamain dg kiri/kanan) + pod + 22 (bawah) ≈ 84
+private const val TOP_H = 84f
 private const val FAV_SHELL = 0xFFFFC94D
 private const val CENTER_X = 480f
 private const val CART_BOTTOM = 380f

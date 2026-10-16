@@ -7,9 +7,16 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import id.iqbaldev.kartrid.core.Game
 import id.iqbaldev.kartrid.core.Settings
 import id.iqbaldev.kartrid.core.Sys
+import id.iqbaldev.kartrid.core.Tab
+import id.iqbaldev.kartrid.ui.Cartridge
+import id.iqbaldev.kartrid.ui.CartStyle
 import id.iqbaldev.kartrid.ui.FolderPicker
 import id.iqbaldev.kartrid.ui.ListScreen
 import id.iqbaldev.kartrid.ui.MockCanvas
@@ -61,8 +68,8 @@ class PreviewTest {
         captureRoboImage("/home/iqbaladinur/hobbies/kartrid/previews/01-shelf.png") {
             MockCanvas {
                 ShelfScreen(
-                    tab = Sys.GBA,
-                    counts = mapOf("GB" to 1, "GBC" to 1, "GBA" to 5),
+                    tab = Tab.GBA,
+                    counts = mapOf("FAV" to 1, "GB" to 1, "GBC" to 1, "GBA" to 5),
                     games = games(),
                     index = 0,
                     focusRequester = androidx.compose.ui.focus.FocusRequester(),
@@ -75,10 +82,47 @@ class PreviewTest {
                     },
                     artVersion = 0,
                     scanning = false,
+                    artRunning = false,
                     scanNote = "",
                     onTab = {}, onIndex = {}, onLaunch = {}, onFav = {}, onSettings = {}, onSearch = {},
                     sfx = Sfx(ctx),
                 )
+            }
+        }
+    }
+
+    @Test
+    fun cartStyleAPreview() {
+        captureRoboImage("/home/iqbaladinur/hobbies/kartrid/previews/08-cart-style-A.png") {
+            MockCanvas {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Cartridge(
+                        sys = Sys.GBA,
+                        art = art("gba_Pokemon_-_Emerald_Version__USA__Europe_.png"),
+                        w = 288f,
+                        h = 206f,
+                        focused = true,
+                        style = CartStyle.A,
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun cartStyleBPreview() {
+        captureRoboImage("/home/iqbaladinur/hobbies/kartrid/previews/09-cart-style-B.png") {
+            MockCanvas {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Cartridge(
+                        sys = Sys.GBA,
+                        art = art("gba_Pokemon_-_Emerald_Version__USA__Europe_.png"),
+                        w = 288f,
+                        h = 206f,
+                        focused = true,
+                        style = CartStyle.B,
+                    )
+                }
             }
         }
     }
@@ -126,7 +170,7 @@ class PreviewTest {
         captureRoboImage("/home/iqbaladinur/hobbies/kartrid/previews/03-list.png") {
             MockCanvas {
                 ListScreen(
-                    tab = Sys.GBA,
+                    tab = Tab.GBA,
                     games = games(),
                     artOf = { art("gba_Pokemon_-_Emerald_Version__USA__Europe_.png") },
                     artVersion = 0,

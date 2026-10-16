@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
@@ -32,9 +34,16 @@ import androidx.compose.ui.unit.sp
 import id.iqbaldev.kartrid.core.Sys
 
 /**
- * Kartrid ala GBA/GB: shell + notch + label boxart + band nama sistem.
+ * Kartrid GBA/GB: shell + notch + label boxart + band nama sistem.
  * `clipFrac` 0..1 = bagian bawah yang ketutup (animasi masuk slot, PLAN §3b).
+ *
+ * Dua style (probing 17 Okt 2026):
+ * - A: kotak bersih, boxart FULL (Fit, nggak ke-crop), band + notch
+ * - B: siluet kartrid GBA (atas rounded, bawah bevel) + kontak emas + shade halus
+ * Kedua style pakai Fit biar art keliatan utuh & jelas.
  */
+enum class CartStyle { A, B }
+
 @Composable
 fun Cartridge(
     sys: Sys,
@@ -46,9 +55,15 @@ fun Cartridge(
     clipFrac: Float = 0f,
     showNotch: Boolean = focused,
     showBand: Boolean = focused,
+    style: CartStyle = CartStyle.B,
 ) {
     val outlineRoom = if (focused) 12f else 0f
-    val shape: Shape = if (sys.rounded) RoundedCornerShape(8.dp) else RectangleShape
+    val shape: Shape = when {
+        style == CartStyle.B ->
+            RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomEnd = 3.dp, bottomStart = 3.dp)
+        sys.rounded -> RoundedCornerShape(8.dp)
+        else -> RectangleShape
+    }
     val shell = shellColor(sys.shell, focused)
     val shadow = if (focused) 8f else 5f
 
@@ -88,7 +103,7 @@ fun Cartridge(
                 .background(shell)
                 .border(2.dp, T.black, shape),
         ) {
-            // label + boxart
+            // label + boxart (Fit = art utuh, nggak ke-crop)
             Box(
                 Modifier
                     .fillMaxSize()
@@ -101,9 +116,32 @@ fun Cartridge(
                         bitmap = art,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
+                        contentScale = ContentScale.Fit,
                         colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
                     )
+                    if (style == CartStyle.B) {
+                        // kontak emas ala kartrid GBA asli
+                        Box(
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 6.dp)
+                                .width((w * 0.22f).dp)
+                                .height(9.dp)
+                                .background(Color(0xFFD9AE4E))
+                                .border(1.dp, Color(0x66000000)),
+                        )
+                        // shade halus di atas label biar nggak flat
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(26.dp)
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color(0x33000000), Color(0x00000000)),
+                                    ),
+                                ),
+                        )
+                    }
                 } else {
                     // placeholder: monogram sistem + caption (belum ada boxart)
                     Box(
