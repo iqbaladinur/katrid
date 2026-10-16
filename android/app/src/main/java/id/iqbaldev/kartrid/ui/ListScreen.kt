@@ -140,7 +140,7 @@ fun ListScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Text("CARI & DAFTAR", color = T.lime, fontFamily = MONO, fontSize = 15.sp, letterSpacing = 1.4.sp)
+            Text("SEARCH & LIST", color = T.lime, fontFamily = MONO, fontSize = 15.sp, letterSpacing = 1.4.sp)
             for (s in Sys.order) {
                 val on = s == tab
                 Text(
@@ -152,7 +152,7 @@ fun ListScreen(
                 )
             }
             Box(Modifier.width(1.dp))
-            Text("${list.size} game", color = T.mutedFg, fontFamily = MONO, fontSize = 13.sp)
+            Text("${list.size} games", color = T.mutedFg, fontFamily = MONO, fontSize = 13.sp)
         }
 
         // daftar
@@ -252,17 +252,17 @@ fun ListScreen(
                 .offset(y = 592.dp),
             horizontalArrangement = Arrangement.Center,
         ) {
-            HintItem("▲ ▼", "geser")
+            HintItem("^ v", "scroll")
             Box(Modifier.width(22.dp))
-            HintItem("◀ ▶", "lompat huruf")
+            HintItem("< >", "jump letter")
             Box(Modifier.width(22.dp))
-            HintItem("L1 R1", "10 baris")
+            HintItem("L1 R1", "10 rows")
             Box(Modifier.width(22.dp))
-            HintItem("A", "mainkan")
+            HintItem("A", "play")
             Box(Modifier.width(22.dp))
-            HintItem("X", "ganti sistem")
+            HintItem("X", "switch system")
             Box(Modifier.width(22.dp))
-            HintItem("B", "kembali")
+            HintItem("B", "back")
         }
     }
 

@@ -203,13 +203,13 @@ private fun KartridRoot(
         if (scanning) return
         scanning = true
         try {
-            note = "mencari folder…"
+            note = "looking for folders…"
             val folders = settings.folders.ifEmpty {
                 withContext(Dispatchers.IO) { RomScanner.discover(ctx) }
             }
-            note = "memindai…"
+            note = "scanning…"
             val found = withContext(Dispatchers.IO) {
-                RomScanner.scan(folders) { n, _ -> note = "memindai… $n" }
+                RomScanner.scan(folders) { n, _ -> note = "scanning… $n" }
             }
             val merged = store.mergeScan(found, settings)
             store.saveLibrary(Library(merged, System.currentTimeMillis()))
@@ -376,7 +376,7 @@ private fun KartridRoot(
                     settings = ns
                     store.saveSettings(ns)
                     pickSys = null
-                    toast = "folder ${s.label}: $path"
+                    toast = "${s.label} folder: $path"
                     scope.launch { runScan() }
                 },
                 onClose = { pickSys = null },
@@ -435,9 +435,9 @@ internal fun PermPanel(onOpen: () -> Unit, onSkip: () -> Unit) {
                 .border(1.5.dp, T.hairline)
                 .padding(24.dp),
         ) {
-            Text("AKSES FILE", color = T.violet, fontFamily = MONO, fontSize = 12.sp, letterSpacing = 1.4.sp)
+            Text("FILE ACCESS", color = T.violet, fontFamily = MONO, fontSize = 12.sp, letterSpacing = 1.4.sp)
             Text(
-                "Kartrid butuh akses folder biar bisa baca ROM dan ngasih path asli ke RetroArch.",
+                text = "Kartrid needs folder access to read ROMs and hand real paths to RetroArch.",
                 color = T.fg,
                 fontFamily = SANS,
                 fontSize = 13.5.sp,
@@ -450,7 +450,7 @@ internal fun PermPanel(onOpen: () -> Unit, onSkip: () -> Unit) {
                         .clickable { onOpen() }
                         .padding(horizontal = 22f.tdp, vertical = 12f.tdp),
                 ) {
-                    Text("BUKA PENGATURAN", color = T.bg, fontFamily = DISPLAY, fontSize = 13.sp)
+                    Text("OPEN SETTINGS", color = T.bg, fontFamily = DISPLAY, fontSize = 13.sp)
                 }
                 Box(Modifier.width(12.dp))
                 Box(
@@ -459,7 +459,7 @@ internal fun PermPanel(onOpen: () -> Unit, onSkip: () -> Unit) {
                         .clickable { onSkip() }
                         .padding(horizontal = 18f.tdp, vertical = 12f.tdp),
                 ) {
-                    Text("LEWATI", color = T.mutedFg, fontFamily = MONO, fontSize = 12.sp)
+                    Text("SKIP", color = T.mutedFg, fontFamily = MONO, fontSize = 12.sp)
                 }
             }
         }

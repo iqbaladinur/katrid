@@ -100,7 +100,7 @@ fun SettingsScreen(
     initialGroup: Int = 0,
     initialPick: String? = null,
 ) {
-    val groups = listOf("Perpustakaan", "Emulator", "Tampilan", "Gambar & cache", "Data & tentang")
+    val groups = listOf("Library", "Emulator", "Display", "Art & cache", "Data & about")
     var group by remember { mutableStateOf(initialGroup.coerceIn(0, groups.size - 1)) }
     var sel by remember { mutableStateOf(0) }
     var pickRow by remember { mutableStateOf<Row.Choices?>(null) }
@@ -114,25 +114,25 @@ fun SettingsScreen(
                 val paths = settings.folders[s.key].orEmpty()
                 add(
                     Row.Action(
-                        name = "Folder ${s.longLabel}",
-                        sub = paths.firstOrNull() ?: "belum diatur — tekan A untuk pilih",
-                        label = if (paths.isEmpty()) "PILIH" else "GANTI",
+                        name = "${s.longLabel} folder",
+                        sub = paths.firstOrNull() ?: "not set — press A to pick",
+                        label = if (paths.isEmpty()) "PICK" else "CHANGE",
                         run = { onFolderPick(s) },
                     ),
                 )
             }
             add(
                 Row.Action(
-                    name = "Pindai ulang",
-                    sub = "${counts.values.sum()} file .gb/.gbc/.gba terdeteksi",
-                    label = "PINDAI",
+                    name = "Rescan",
+                    sub = "${counts.values.sum()} .gb/.gbc/.gba files found",
+                    label = "SCAN",
                     run = onRescan,
                 ),
             )
             add(
                 Row.Toggle(
-                    name = "Pindai otomatis saat dibuka",
-                    sub = "refresh inkremental pakai waktu modifikasi file",
+                    name = "Auto-scan on open",
+                    sub = "incremental refresh by file modification time",
                     value = settings.autoScan,
                     set = { onUpdate(settings.copy(autoScan = it)) },
                 ),
@@ -143,8 +143,8 @@ fun SettingsScreen(
             add(
                 Row.Choices(
                     name = "Engine",
-                    sub = if (installed.isEmpty()) "RetroArch belum terdeteksi — install dulu"
-                    else "aplikasi emulator yang dipakai (tap ganti)",
+                    sub = if (installed.isEmpty()) "RetroArch not detected — install it first"
+                    else "emulator app used (tap to change)",
                     options = engines,
                     current = settings.retroPkg ?: retroPkg,
                     pick = { onUpdate(settings.copy(retroPkg = it)) },
@@ -156,8 +156,8 @@ fun SettingsScreen(
                 add(
                     Row.Choices(
                         name = "Core ${s.label}",
-                        sub = if (cores.isEmpty()) "auto-deteksi kosong — pilih manual"
-                        else "core untuk ${s.longLabel} (tap ganti)",
+                        sub = if (cores.isEmpty()) "auto-detect empty — pick manually"
+                        else "core for ${s.longLabel} (tap to change)",
                         options = avail,
                         current = cur?.takeIf { it in avail } ?: avail.first(),
                         pick = { onUpdate(settings.copy(cores = settings.cores + (s.key to it))) },
@@ -168,21 +168,21 @@ fun SettingsScreen(
                 Row.Info(
                     name = "Config file",
                     sub = settings.cfgPath ?: retroPkg?.let { RetroArch.defaultCfg(it) } ?: "—",
-                    value = "otomatis",
+                    value = "auto",
                 ),
             )
             add(
                 Row.Toggle(
-                    name = "Keluar saat keluar game",
-                    sub = "QUITFOCUS — balik ke rak pas RetroArch kehilangan fokus",
+                    name = "Quit when leaving a game",
+                    sub = "QUITFOCUS — back to shelf when RetroArch loses focus",
                     value = settings.quitFocus,
                     set = { onUpdate(settings.copy(quitFocus = it)) },
                 ),
             )
             add(
                 Row.Toggle(
-                    name = "Paksa 60 Hz",
-                    sub = "REFRESH=60 — lebih mulus, sedikit lebih boros",
+                    name = "Force 60 Hz",
+                    sub = "REFRESH=60 — smoother, slightly more power",
                     value = settings.force60,
                     set = { onUpdate(settings.copy(force60 = it)) },
                 ),
@@ -191,37 +191,37 @@ fun SettingsScreen(
         2 -> buildList {
             add(
                 Row.Toggle(
-                    name = "Animasi kartrid masuk slot",
-                    sub = "turun → masuk slot → flash + klik",
+                    name = "Cartridge insert animation",
+                    sub = "drop → slot → flash + click",
                     value = settings.animEnabled,
                     set = { onUpdate(settings.copy(animEnabled = it)) },
                 ),
             )
-            add(Row.Info(name = "Orientasi", sub = "landscape dikunci (3:2)", value = "960×640"))
-            add(Row.Info(name = "Kanvas desain", sub = "semua ukuran di-scale proporsional", value = "960×640 px"))
+            add(Row.Info(name = "Orientation", sub = "locked landscape (3:2)", value = "960×640"))
+            add(Row.Info(name = "Design canvas", sub = "all sizes scaled proportionally", value = "960×640 px"))
         }
         3 -> buildList {
             add(
                 Row.Toggle(
-                    name = "Unduh boxart otomatis",
-                    sub = "libretro-thumbnails, downsample 256px",
+                    name = "Auto-download boxart",
+                    sub = "libretro-thumbnails, 256px downsample",
                     value = settings.autoArt,
                     set = { onUpdate(settings.copy(autoArt = it)) },
                 ),
             )
-            add(Row.Info(name = "Ukuran cache", sub = "boxart tersimpan di storage internal app", value = fmtSize(cacheBytes)))
-            add(Row.Action(name = "Bersihkan cache boxart", sub = "hapus semua PNG yang keunduh", label = "HAPUS", run = onClearCache))
+            add(Row.Info(name = "Cache size", sub = "boxart kept in the app's internal storage", value = fmtSize(cacheBytes)))
+            add(Row.Action(name = "Clear boxart cache", sub = "delete all downloaded thumbnails", label = "DELETE", run = onClearCache))
         }
         else -> buildList {
-            add(Row.Info(name = "Kartrid", sub = "frontend GB/GBC/GBA untuk RetroArch", value = "v0.1.0"))
-            add(Row.Info(name = "Total game", sub = "semua sistem", value = counts.values.sum().toString()))
-            add(Row.Info(name = "RetroArch", sub = "paket terdeteksi", value = retroPkg ?: "—"))
-            add(Row.Info(name = "Core terpasang", sub = cores.joinToString(", ").ifBlank { "—" }, value = cores.size.toString()))
+            add(Row.Info(name = "Kartrid", sub = "GB/GBC/GBA frontend for RetroArch", value = "v0.1.0"))
+            add(Row.Info(name = "Total games", sub = "all systems", value = counts.values.sum().toString()))
+            add(Row.Info(name = "RetroArch", sub = "detected package", value = retroPkg ?: "—"))
+            add(Row.Info(name = "Installed cores", sub = cores.joinToString(", ").ifBlank { "—" }, value = cores.size.toString()))
             for (s in Sys.order) {
                 val f = scannedFolders[s.key].orEmpty()
-                add(Row.Info(name = "Folder ${s.label}", sub = f.joinToString(" · ").ifBlank { "—" }, value = "${counts[s.key] ?: 0}"))
+                add(Row.Info(name = "${s.label} folder", sub = f.joinToString(" · ").ifBlank { "—" }, value = "${counts[s.key] ?: 0}"))
             }
-            add(Row.Action(name = "Reset statistik main", sub = "jumlah main & durasi jadi nol", label = "RESET", run = onResetStats))
+            add(Row.Action(name = "Reset play stats", sub = "play counts & time back to zero", label = "RESET", run = onResetStats))
         }
     }
 
@@ -282,7 +282,7 @@ fun SettingsScreen(
                 },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("← PENGATURAN", color = T.fg, fontFamily = MONO, fontSize = 13.sp, letterSpacing = 1.4.sp)
+            Text("← SETTINGS", color = T.fg, fontFamily = MONO, fontSize = 13.sp, letterSpacing = 1.4.sp)
             Box(Modifier.weight(1f))
             Text("v0.1.0", color = T.mutedFg, fontFamily = MONO, fontSize = 11.sp)
         }
@@ -359,13 +359,13 @@ fun SettingsScreen(
                             .offset(y = 588.dp),
             horizontalArrangement = Arrangement.Center,
         ) {
-            HintItem("▲ ▼", "pilih")
+            HintItem("^ v", "select")
             Box(Modifier.width(26.dp))
-            HintItem("◀ ▶", "grup")
+            HintItem("< >", "group")
             Box(Modifier.width(26.dp))
-            HintItem("A", "ubah")
+            HintItem("A", "change")
             Box(Modifier.width(26.dp))
-            HintItem("B", "kembali")
+            HintItem("B", "back")
         }
 
         // modal pilih engine/core
@@ -448,7 +448,7 @@ private fun SettingRow(r: Row, selected: Boolean, onClick: () -> Unit) {
                     .padding(horizontal = 18.dp, vertical = 12.dp),
             ) {
                 Text(
-                    text = shortCore(r.current.orEmpty()).ifBlank { "▾ pilih" },
+                    text = shortCore(r.current.orEmpty()).ifBlank { "▾ pick" },
                     color = if (selected) T.lime else T.fg,
                     fontFamily = MONO,
                     fontSize = 13.5.sp,
@@ -524,11 +524,11 @@ private fun PickerOverlay(
         }
         Box(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            HintItem("▲ ▼", "pilih")
+            HintItem("^ v", "select")
             Box(Modifier.width(22.dp))
-            HintItem("A", "pilih ini")
+            HintItem("A", "select this")
             Box(Modifier.width(22.dp))
-            HintItem("B", "batal")
+            HintItem("B", "cancel")
         }
     }
 }

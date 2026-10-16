@@ -300,7 +300,7 @@ fun ShelfScreen(
 
             if (scanning) {
                 Text(
-                    text = scanNote.ifBlank { "memindai…" },
+                    text = scanNote.ifBlank { "scanning…" },
                     color = T.mutedFg,
                     fontFamily = MONO,
                     fontSize = 10.5.sp,
@@ -351,7 +351,7 @@ fun ShelfScreen(
                 )
             } else {
                 Text(
-                    text = "RAK KOSONG",
+                    text = "EMPTY SHELF",
                     color = T.mutedFg,
                     fontFamily = DISPLAY,
                     fontSize = 34.sp,
@@ -380,15 +380,15 @@ fun ShelfScreen(
                     .offset(y = 598.dp),
                 horizontalArrangement = Arrangement.Center,
             ) {
-                HintItem("◀ ▶", "pindah")
+                HintItem("< >", "move")
                 ListSpacer()
-                HintItem("A", "masukkan")
+                HintItem("A", "insert")
                 ListSpacer()
-                HintItem("X", "favorit")
+                HintItem("X", "favorite")
                 ListSpacer()
-                HintItem("Y", "cari")
+                HintItem("Y", "search")
                 ListSpacer()
-                HintItem("B", "pengaturan")
+                HintItem("B", "settings")
             }
         }
 
@@ -410,8 +410,8 @@ private fun metaOf(g: Game): String {
     val parts = ArrayList<String>()
     g.region?.let { parts.add(it) }
     parts.add(sizeText(g.sizeBytes))
-    if (g.plays > 0) parts.add("main ${g.plays}×")
-    else parts.add("belum pernah")
+    if (g.plays > 0) parts.add("played ${g.plays}×")
+    else parts.add("never played")
     return parts.joinToString("  ·  ")
 }
 
@@ -426,20 +426,21 @@ internal fun HintItem(key: String, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
+                .size(50.dp, 32.dp)
                 .border(1.5.dp, T.hairline)
-                .background(T.surface)
-                .padding(horizontal = 8f.tdp, vertical = 4f.tdp),
+                .background(T.surface),
+            contentAlignment = Alignment.Center,
         ) {
             Text(key, color = T.fg, fontFamily = MONO, fontSize = 13.sp)
         }
-        Box(Modifier.width(6.dp))
+        Box(Modifier.width(8.dp))
         Text(label, color = T.mutedFg, fontFamily = MONO, fontSize = 13.sp)
     }
 }
 
 @Composable
 private fun ListSpacer() {
-    Box(Modifier.width(18.dp))
+    Box(Modifier.width(28.dp))
 }
 
 @Composable
@@ -456,7 +457,7 @@ private fun EmptyPanel() {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "Belum ada ROM.\nTekan B (atau gear) buat atur folder ROM.",
+            text = "No ROMs yet.\nPress B (or the gear) to set your ROM folders.",
             color = T.mutedFg,
             fontFamily = MONO,
             fontSize = 12.sp,
@@ -473,7 +474,7 @@ private fun LoadOverlay(g: Game) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "MEMUAT",
+            text = "LOADING",
             color = T.fg,
             fontFamily = DISPLAY,
             fontSize = 24.sp,

@@ -124,7 +124,7 @@ fun FolderPicker(
                 .padding(22.dp),
         ) {
             Text(
-                text = "PILIH FOLDER ${sys.longLabel}",
+                text = "SELECT ${sys.longLabel.uppercase()} FOLDER",
                 color = T.lime,
                 fontFamily = MONO,
                 fontSize = 13.sp,
@@ -148,7 +148,7 @@ fun FolderPicker(
                     .weight(1f)
                     .verticalScroll(rememberScrollState()),
             ) {
-                PickerRow(".. (naik satu folder)", sel == 0) { sel = 0; up() }
+                PickerRow(".. (up one folder)", sel == 0) { sel = 0; up() }
                 dirs.forEachIndexed { i, d ->
                     PickerRow("${d.name}/", sel == i + 1) {
                         sel = i + 1
@@ -162,7 +162,7 @@ fun FolderPicker(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "$hits file .${sys.ext} di folder ini",
+                    text = "$hits .${sys.ext} files in this folder",
                     color = if (hits > 0) T.lime else T.mutedFg,
                     fontFamily = MONO,
                     fontSize = 11.sp,
@@ -174,7 +174,7 @@ fun FolderPicker(
                         .clickable { onPick(dir.absolutePath) }
                         .padding(horizontal = 18f.tdp, vertical = 12f.tdp),
                 ) {
-                    Text("PAKAI FOLDER INI", color = T.bg, fontFamily = DISPLAY, fontSize = 13.sp)
+                    Text("USE THIS FOLDER", color = T.bg, fontFamily = DISPLAY, fontSize = 13.sp)
                 }
                 Box(Modifier.width(10.dp))
                 Box(
@@ -183,7 +183,7 @@ fun FolderPicker(
                         .clickable { onClose() }
                         .padding(horizontal = 16f.tdp, vertical = 12f.tdp),
                 ) {
-                    Text("BATAL", color = T.mutedFg, fontFamily = MONO, fontSize = 12.sp)
+                    Text("CANCEL", color = T.mutedFg, fontFamily = MONO, fontSize = 12.sp)
                 }
             }
 
@@ -193,13 +193,13 @@ fun FolderPicker(
                     .padding(top = 12.dp),
                 horizontalArrangement = Arrangement.Center,
             ) {
-                HintItem("▲ ▼", "pilih")
+                HintItem("^ v", "select")
                 Box(Modifier.width(22.dp))
-                HintItem("A", "masuk")
+                HintItem("A", "open")
                 Box(Modifier.width(22.dp))
-                HintItem("X", "pakai folder")
+                HintItem("X", "use folder")
                 Box(Modifier.width(22.dp))
-                HintItem("B", "naik / batal")
+                HintItem("B", "up / cancel")
             }
         }
     }
