@@ -8,16 +8,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,6 +56,8 @@ fun FolderPicker(
     sfx: Sfx,
 ) {
     val root = Environment.getExternalStorageDirectory().absolutePath
+    val storageRoot = "/storage"
+
     var dir by remember {
         mutableStateOf(
             run {
@@ -79,13 +83,22 @@ fun FolderPicker(
             it.isFile && it.extension.equals(sys.ext, ignoreCase = true)
         }
     }
-    // baris 0 = ".." (naik), sisanya folder
-    val total = dirs.size + 1
+    // Show /storage shortcut when in /storage/emulated/0 so user can reach external SD /storage/7BF4-78FE
+    val showStorage = dir.canonicalPath.equals(root, ignoreCase = true)
+    val total = dirs.size + 1 + if (showStorage) 1 else 0
 
-    fun up() {
+    fun goUp() {
         val p = dir.parentFile
-        if (p != null && p.canRead() && dir.absolutePath.length > root.length) {
+        if (p != null && p.canRead()) {
             dir = p
+            sel = 0
+            sfx.tick()
+        }
+    }
+
+    fun goToStorage() {
+        File(storageRoot).takeIf { it.isDirectory && it.canRead() }?.let {
+            dir = it
             sel = 0
             sfx.tick()
         }
@@ -102,12 +115,16 @@ fun FolderPicker(
                     AKey.KEYCODE_DPAD_UP -> { sel = (sel - 1).coerceAtLeast(0); sfx.tick(); true }
                     AKey.KEYCODE_DPAD_DOWN -> { sel = (sel + 1).coerceAtMost(total - 1); sfx.tick(); true }
                     AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> {
-                        if (sel == 0) up() else { dir = dirs[sel - 1]; sel = 0 }
+                        when {
+                            sel == 0 -> goUp()
+                            showStorage && sel == 1 -> goToStorage()
+                            else -> { dir = dirs[if (showStorage) sel - 2 else sel - 1]; sel = 0 }
+                        }
                         sfx.tick(); true
                     }
                     AKey.KEYCODE_BUTTON_X, AKey.KEYCODE_DPAD_RIGHT -> { onPick(dir.absolutePath); true }
                     AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> {
-                        if (dir.absolutePath.length > root.length) up() else { onClose(); sfx.tick() }
+                        if (dir.parentFile?.canRead() == true) goUp() else { onClose(); sfx.tick() }
                         true
                     }
                     else -> false
@@ -141,24 +158,34 @@ fun FolderPicker(
             )
             Box(Modifier.height(12.dp))
 
-            // daftar (scroll: jangan dorong tombol keluar panel kalau folder banyak)
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                PickerRow(".. (up one folder)", sel == 0) { sel = 0; up() }
+            // Build list items: 0=up, 1=storage (optional), 2+=folders
+            val allItems: List<Pair<String, () -> Unit>> = buildList {
+                add(".. (up one folder)" to { sel = 0; goUp() })
+                if (showStorage) add("↗ /storage/" to { sel = 1; goToStorage() })
                 dirs.forEachIndexed { i, d ->
-                    PickerRow("${d.name}/", sel == i + 1) {
-                        sel = i + 1
+                    val idx = if (showStorage) i + 2 else i + 1
+                    add("${d.name}/" to {
+                        sel = idx
                         dir = d
                         sel = 0
-                    }
+                    })
                 }
             }
 
-            Box(Modifier.weight(1f))
+            val listState = rememberLazyListState()
+            // Auto-scroll to selected item
+            LaunchedEffect(sel) {
+                if (sel in allItems.indices) listState.animateScrollToItem(sel)
+            }
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+            ) {
+                itemsIndexed(allItems) { i, (label, action) ->
+                    PickerRow(label, sel == i) { sel = i; action() }
+                }
+            }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

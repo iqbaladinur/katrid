@@ -27,6 +27,13 @@ object RomScanner {
     /** hasil scan + stamp mtime tiap folder (dipakai incremental di run berikutnya) */
     data class ScanOut(val games: List<Game>, val stamps: Map<String, Long>)
 
+    /** Scan dengan filter longgar: termoimum extension (.gb/.gbc/.gba + zip/7z). Pakai ini
+     *  untuk folder yang di-set manual oleh user. */
+    fun acceptsArchive(e: String): Boolean {
+        val l = e.lowercase()
+        return l == "gb" || l == "gbc" || l == "gba" || l == "zip" || l == "7z"
+    }
+
     private val HINT = Regex("(?i)rom|game|gb|gbc|gba|retro|emul|kartrid|nintendo|backup")
     private val SKIP = Regex("(?i)^Android$|^\\.|thumbnails|DCIM|Movies|Music|Pictures|WhatsApp|Telegram|MIUI|Download$")
 
@@ -124,7 +131,7 @@ object RomScanner {
                                 return@withPermit
                             }
                             val files = walkFiles(root) { f ->
-                                !f.name.startsWith(".") && sys.accepts(f.extension)
+                                !f.name.startsWith(".") && acceptsArchive(f.extension)
                             }
                             results[key] = files.map { make(sys, it) }
                             freshStamps[key] = stamp

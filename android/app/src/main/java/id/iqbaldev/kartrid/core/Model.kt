@@ -18,7 +18,6 @@ enum class Sys(
 ) {
     GB(
         key = "GB", label = "GB", ext = "gb", shell = 0xFFBFBCCB,
-        ext2 = "zip", ext3 = "7z",
         cores = listOf(
             "gambatte_libretro_android.so",
             "sameboy_libretro_android.so",
@@ -27,7 +26,6 @@ enum class Sys(
     ),
     GBC(
         key = "GBC", label = "GBC", ext = "gbc", shell = 0xFF6E9FC7,
-        ext2 = "zip", ext3 = "7z",
         cores = listOf(
             "gambatte_libretro_android.so",
             "sameboy_libretro_android.so",
@@ -37,7 +35,6 @@ enum class Sys(
     ),
     GBA(
         key = "GBA", label = "GBA", ext = "gba", shell = 0xFF5A4C93,
-        ext2 = "zip", ext3 = "7z",
         cores = listOf(
             "mgba_libretro_android.so",
             "gpsp_libretro_android.so",
@@ -45,10 +42,9 @@ enum class Sys(
         ),
     );
 
-    /** diterima kalau ekstensinya rom utama atau arsip (.zip/.7z) */
+    /** diterima kalau ekstensinya rom utama saja (.gb/.gbc/.gba) */
     fun accepts(e: String): Boolean {
-        val l = e.lowercase()
-        return l == ext || l == ext2 || l == ext3
+        return e.lowercase() == ext
     }
 
     /** label sistem yang dicetak di band kartrid */

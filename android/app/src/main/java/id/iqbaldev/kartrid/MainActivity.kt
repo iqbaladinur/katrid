@@ -319,7 +319,7 @@ private fun KartridRoot(
             "image/webp" -> "webp"
             else -> "png"
         }
-        val dir = File(ctx.filesDir, "custom").apply { mkdirs() }
+        val dir = File(ctx.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES), "kartrid_custom").apply { mkdirs() }
         val f = File(dir, "${g.id}.$ext")
         val ok = runCatching {
             val n = ctx.contentResolver.openInputStream(uri)?.use { ins ->
@@ -357,7 +357,8 @@ private fun KartridRoot(
         if (uri != null && g != null) importCustomArt(g, uri)
     }
 
-    suspend fun runScan() {
+    /** paksa re-scan untuk sys tertentu (clear stamp), atau full re-scan kalau sys=null */
+    suspend fun runScan(clearStampsFor: Set<String>? = null) {
         if (scanning) return
         scanning = true
         try {
@@ -366,8 +367,15 @@ private fun KartridRoot(
                 withContext(Dispatchers.IO) { RomScanner.discover(ctx) }
             }
             note = "scanning…"
+            // clear stamp untuk folder yang explicitly di-set user → wajib re-scan
+            // stamp key format: "SYS|/path"; filter out semua key yang startsWith salah satu sys
+            val clearedStamps = if (clearStampsFor != null) {
+                store.library.folderStamp.filterKeys { key -> clearStampsFor.none { key.startsWith("$it|") } }
+            } else {
+                store.library.folderStamp
+            }
             val out = withContext(Dispatchers.IO) {
-                RomScanner.scan(folders, store.library.games, store.library.folderStamp) { n, _ -> note = "scanning… $n" }
+                RomScanner.scan(folders, store.library.games, clearedStamps) { n, _ -> note = "scanning… $n" }
             }
             val merged = store.mergeScan(out.games, settings)
             store.saveLibrary(Library(merged, System.currentTimeMillis(), out.stamps))
@@ -396,7 +404,7 @@ private fun KartridRoot(
             }
             withContext(Dispatchers.Main) { retroPkg = pkg; installedPkgs = installed; cores = cs; onCores(cs) }
         }
-        if (permOk && settings.autoScan) runScan()
+        if (permOk && settings.autoScan && settings.folders.isNotEmpty()) runScan()
     }
 
     // jumlah game visible di tab tertentu (FAV = campuran semua sistem)
@@ -436,8 +444,11 @@ private fun KartridRoot(
                 index = index.coerceIn(0, (visible.size - 1).coerceAtLeast(0)),
                 focusRequester = focusRequester,
                 artOf = { g ->
-                    // nggak ada gate: artCache.get udah null kalau art-nya emang nggak ada
-                    artCache.get(g)?.asImageBitmap()
+                    // custom art dari user: load langsung dari path
+                    g.artFile?.let { path ->
+                        runCatching { android.graphics.BitmapFactory.decodeFile(path) }
+                            .getOrNull()?.asImageBitmap()
+                    } ?: artCache.get(g)?.asImageBitmap()
                 },
                 artVersion = artVersion,
                 scanning = scanning,
@@ -478,7 +489,7 @@ private fun KartridRoot(
                 cores = cores,
                 cacheBytes = cacheBytes,
                 onUpdate = { s -> settings = s; store.saveSettings(s) },
-                onRescan = { scope.launch { runScan() } },
+                onRescan = { scope.launch { runScan(clearStampsFor = settings.folders.keys) } },
                 onClearCache = {
                     scope.launch {
                         withContext(Dispatchers.IO) { artCache.clear() }
@@ -561,7 +572,7 @@ private fun KartridRoot(
                     store.saveSettings(ns)
                     pickSys = null
                     toast = "${s.label} folder: $path"
-                    scope.launch { runScan() }
+                    scope.launch { runScan(clearStampsFor = setOf(s.key)) }
                 },
                 onClose = { pickSys = null },
                 sfx = sfx,
@@ -581,7 +592,7 @@ private fun KartridRoot(
     }
     LaunchedEffect(resumeTick) {
         permOk = hasStorage()
-        if (permOk && games.isEmpty() && !scanning && settings.autoScan) runScan()
+        if (permOk && games.isEmpty() && !scanning && settings.autoScan && settings.folders.isNotEmpty()) runScan()
     }
 
     toast?.let { m ->
