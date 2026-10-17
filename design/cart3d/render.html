@@ -1,0 +1,167 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>cart3d</title>
+<style>html,body{margin:0;background:transparent}canvas{display:block}</style></head>
+<body>
+<canvas id="c"></canvas>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+
+const q = new URLSearchParams(location.search);
+const SPIN  = parseFloat(q.get('spin')  ?? '0');    // derajat, sumbu Y (kiri-kanan)
+const TILT  = parseFloat(q.get('tilt')  ?? '0');    // derajat, sumbu X (atas-bawah)
+const LABEL = q.get('label') || '';                 // bitmap label (art + panel sistem)
+const PLATE = (q.get('plate') ?? '1') !== '0';      // 0 = frame doang, lubang transparan
+const UNLIT = q.get('unlit') === '1';               // label = albedo murni (nggak di-light)
+const OUT_W = 1200;
+
+// dimensi kartrid Switch asli (mm)
+const W = 31.5, H = 21.5, T = 3.4;
+const RAD = 1.5, BEV = 0.28, LBL_IN = 1.75, LBL_R = 1.1, RECESS = 0.30;
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true, preserveDrawingBuffer:true});
+renderer.setPixelRatio(1);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+// NoToneMapping: label dicetak = albedo mentah, biar bake == warp di app (nggak ada color shift)
+renderer.toneMapping = THREE.NoToneMapping;
+
+RectAreaLightUniformsLib.init();
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+function bodyShape(w, h, r, cut = 2.0) {
+  const s = new THREE.Shape(), x = -w/2, y = -h/2;
+  s.moveTo(x + r + cut, y);
+  s.lineTo(x + w - r, y);
+  s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h);
+  s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r + cut);
+  s.lineTo(x + cut, y + r);
+  s.quadraticCurveTo(x + r, y, x + r + cut, y);
+  return s;
+}
+function labelShape(w, h, r) {
+  const s = new THREE.Shape(), x = -w/2, y = -h/2;
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y);
+  s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h);
+  s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r);
+  s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+const ext = (shape, depth, bevel) => new THREE.ExtrudeGeometry(shape, {
+  depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 24,
+});
+
+const lw = W - 2*LBL_IN, lh = H - 2*LBL_IN;
+const outer = bodyShape(W, H, RAD);
+outer.holes.push(new THREE.Path(labelShape(lw, lh, LBL_R).getPoints(28).reverse()));
+
+const bodyGeo = ext(outer, T - 2*BEV, BEV);
+bodyGeo.translate(0, 0, -(T - 2*BEV)/2);
+
+const plastic = new THREE.MeshPhysicalMaterial({
+  color: new THREE.Color('#EFEDE6'), roughness: 0.42, clearcoat: 0.45,
+  clearcoatRoughness: 0.35, envMapIntensity: 0.55,
+});
+
+// grup diputar — pivot di titik pusat kartrid
+const g = new THREE.Group();
+g.rotation.y = THREE.MathUtils.degToRad(SPIN);
+g.rotation.x = THREE.MathUtils.degToRad(TILT);
+scene.add(g);
+g.add(new THREE.Mesh(bodyGeo, plastic));
+
+const zf = T/2;
+if (PLATE) {
+  const pw = lw + 0.12, ph = lh + 0.12;
+  const pg = ext(labelShape(pw, ph, LBL_R), 0.06, 0.05);
+  pg.translate(0, 0, -0.03);
+  const pos = pg.attributes.position, uv = pg.attributes.uv;
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i)+pw/2)/pw, (pos.getY(i)+ph/2)/ph);
+  uv.needsUpdate = true;
+  let mat;
+  if (LABEL) {
+    const tex = await new THREE.TextureLoader().loadAsync(LABEL);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    // tanpa mipmap: teks label tetap tajam & bake == warp (app gambar bitmap apa adanya)
+    tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+    mat = UNLIT
+      ? new THREE.MeshBasicMaterial({map: tex})                       // dicetak = albedo, biar warp di app = bake
+      : new THREE.MeshPhysicalMaterial({map: tex, roughness: 0.55, clearcoat: 0.10, envMapIntensity: 0.5});
+  } else {
+    mat = new THREE.MeshPhysicalMaterial({color:'#D9D5CC', roughness:0.7, clearcoat:0.08, envMapIntensity:0.45});
+  }
+  const plate = new THREE.Mesh(pg, mat);
+  plate.position.z = zf - RECESS;
+  g.add(plate);
+}
+
+// kamera perspektif (parallax tipis biar puteran kebaca)
+const viewW = W * 1.36, viewH = H * 1.66;
+const HGT = Math.round(OUT_W * viewH / viewW);
+const fov = 18;
+const dist = (viewH / 2) / Math.tan(fov * Math.PI / 360);
+const cam = new THREE.PerspectiveCamera(fov, OUT_W / HGT, 1, 900);
+cam.position.set(0, 0, dist);
+cam.lookAt(0, 0, 0);
+
+const key = new THREE.DirectionalLight(0xffffff, 0.62); key.position.set(-22, 26, 60); scene.add(key);
+const fill = new THREE.DirectionalLight(0xD9D2FF, 0.26); fill.position.set(26, -10, 50); scene.add(fill);
+const rim  = new THREE.DirectionalLight(0xFFF3D0, 0.5); rim.position.set(10, -18, -30); scene.add(rim);
+const area = new THREE.RectAreaLight(0xffffff, 3.4, 26, 15);
+area.position.set(-8, 13, 44); area.lookAt(0, 0, 0); scene.add(area);
+const area2 = new THREE.RectAreaLight(0xCFC4FF, 1.2, 18, 12);
+area2.position.set(16, -12, 40); area2.lookAt(0, 0, 0); scene.add(area2);
+scene.add(new THREE.AmbientLight(0xffffff, 0.10));
+
+renderer.setSize(OUT_W, HGT, false);
+canvas.width = OUT_W; canvas.height = HGT;
+renderer.render(scene, cam);
+
+// bbox alpha (inget y GL kebalik)
+const gl = renderer.getContext();
+const px = new Uint8Array(OUT_W * HGT * 4);
+gl.readPixels(0, 0, OUT_W, HGT, gl.RGBA, gl.UNSIGNED_BYTE, px);
+let minX = 1e9, minY = 1e9, maxX = -1, maxY = -1;
+for (let y = 0; y < HGT; y++) for (let x = 0; x < OUT_W; x++) {
+  if (px[(y*OUT_W + x)*4 + 3] > 8) {
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    const fy = HGT - 1 - y;
+    if (fy < minY) minY = fy; if (fy > maxY) maxY = fy;
+  }
+}
+
+// quad label di layar: urutan TL, TR, BR, BL (buat setPolyToPoly di Compose)
+const quad = [[-1,1],[1,1],[1,-1],[-1,-1]].map(([sx, sy]) => {
+  const v = new THREE.Vector3(sx*lw/2, sy*lh/2, zf - RECESS);
+  g.localToWorld(v);
+  v.project(cam);
+  return [ (v.x*0.5+0.5)*OUT_W, (1-(v.y*0.5+0.5))*HGT ];
+});
+
+window.__meta = {
+  spin: SPIN, tilt: TILT, plate: PLATE, label: LABEL,
+  out: [OUT_W, HGT],
+  bbox: {x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1},
+  quad,
+  pxPerMm: OUT_W / viewW,
+  mm: {W, H, T, labelW: lw, labelH: lh},
+};
+document.title = 'ready';
+</script>
+</body></html>

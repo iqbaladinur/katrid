@@ -3,12 +3,15 @@ package id.iqbaldev.kartrid.ui
 import android.view.KeyEvent as AKey
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,13 +23,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,6 +48,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,21 +63,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
-import kotlin.math.roundToInt
-import kotlin.math.sign
 
-// geometri (px, basis kanvas 960x640 — PLAN §3b)
-// TOP_H = 22 (gutter atas, disamain dg kiri/kanan) + pod + 22 (bawah) ≈ 84
+// geometri rak (px, basis kanvas 960x640) — kartrid LANDSCAPE rasio asli 31,5:21,5
 private const val TOP_H = 84f
 private const val FAV_SHELL = 0xFFFFC94D
 private const val CENTER_X = 480f
-// kartrid PORTRAIT — Switch-card style (0.72:1), fokus gede + turun
-private const val CART_BOTTOM = 410f
-private const val FOCUS_W = 214f
-private const val FOCUS_H = 296f
-private const val ITEM_W = 140f
-private const val GAP = 44f
-private const val SLOT_TOP = 410f
+private const val CART_BOTTOM = 430f        // garis dasar rak
+private const val FOCUS_W = 305f            // lebar kartrid fokus
+private const val ITEM_W = 200f             // lebar tetangga
+private const val GAP = 46f
+private const val TITLE_Y = 470f
 
 private fun widthAt(d: Float): Float {
     val t = d.coerceIn(0f, 1f)
@@ -94,8 +92,6 @@ private fun centerOffset(d: Float): Float {
     }
     return s
 }
-
-private fun aspect() = FOCUS_H / FOCUS_W
 
 @Composable
 fun ShelfScreen(
@@ -118,11 +114,13 @@ fun ShelfScreen(
     onSetArt: (Game) -> Unit,
     onClearArt: (Game) -> Unit,
     sfx: Sfx,
+    /** seed sinkron (dipakai preview/test) — app normal pakai [artOf] */
+    preloadArt: ((Game) -> ImageBitmap?)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val current = games.getOrNull(index)
     var cartMenu by remember { mutableStateOf(false) }
-    var cartMenuSel by remember { mutableStateOf(0) }
+    var cartMenuSel by remember { mutableIntStateOf(0) }
 
     // posisi carousel dianimasikan sebagai indeks pecahan
     val f by animateFloatAsState(
@@ -133,9 +131,8 @@ fun ShelfScreen(
 
     val yOff = remember { Animatable(0f) }
     val scale = remember { Animatable(1f) }
-    var clipFrac by remember { mutableFloatStateOf(0f) }
-    var flash by remember { mutableStateOf(false) }
-    var tip by remember { mutableStateOf<String?>(null) }
+    val spin = remember { Animatable(0f) }          // derajat, pivot = pusat kartrid
+    val tilt = remember { Animatable(0f) }
     var loading by remember { mutableStateOf<Game?>(null) }
 
     fun move(delta: Int) {
@@ -143,30 +140,30 @@ fun ShelfScreen(
         onIndex((index + delta).coerceIn(0, games.size - 1))
     }
 
-    suspend fun play(g: Game) = coroutineScope {
-        tip = "MENUJU SLOT…"
-        launch { yOff.animateTo(40f, tween(220)) }
-        launch { scale.animateTo(0.96f, tween(220)) }
-        delay(230)
+    suspend fun settle() {
+        coroutineScope {
+            launch {
+                spin.animateTo(0f, spring(dampingRatio = 0.6f, stiffness = 380f))
+            }
+            launch {
+                tilt.animateTo(0f, spring(dampingRatio = 0.7f, stiffness = 420f))
+            }
+        }
+    }
 
+    suspend fun play(g: Game) = coroutineScope {
+        launch { yOff.animateTo(34f, tween(180)) }
+        launch { scale.animateTo(0.97f, tween(180)) }
         sfx.insert()
         sfx.haptic(18)
-        tip = "KLEK!"
-        clipFrac = 0.42f
-        flash = true
-        launch { yOff.animateTo(26f, tween(90)) }
-        launch { scale.animateTo(0.98f, tween(90)) }
-        delay(200)
+        delay(190)
 
         loading = g
-        delay(360)
+        delay(400)
         onLaunch(g)
-        delay(150)
+        delay(120)
 
         loading = null
-        flash = false
-        clipFrac = 0f
-        tip = null
         yOff.snapTo(0f)
         scale.snapTo(1f)
     }
@@ -176,6 +173,9 @@ fun ShelfScreen(
         if (loading != null) return
         scope.launch { play(g) }
     }
+
+    // kartrid baru → puteran balik ke tengah
+    LaunchedEffect(index) { settle() }
 
     Box(
         Modifier
@@ -206,8 +206,12 @@ fun ShelfScreen(
                 } else when (ev.nativeKeyEvent.keyCode) {
                     AKey.KEYCODE_DPAD_LEFT -> { move(-1); sfx.tick(); true }
                     AKey.KEYCODE_DPAD_RIGHT -> { move(1); sfx.tick(); true }
-                    AKey.KEYCODE_BUTTON_L1, AKey.KEYCODE_BUTTON_L2 -> { val i = Tab.list.indexOf(tab); onTab(Tab.list[(i + Tab.list.size - 1) % Tab.list.size]); sfx.tick(); true }
-                    AKey.KEYCODE_BUTTON_R1, AKey.KEYCODE_BUTTON_R2 -> { val i = Tab.list.indexOf(tab); onTab(Tab.list[(i + 1) % Tab.list.size]); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_L1, AKey.KEYCODE_BUTTON_L2 -> {
+                        val i = Tab.list.indexOf(tab); onTab(Tab.list[(i + Tab.list.size - 1) % Tab.list.size]); sfx.tick(); true
+                    }
+                    AKey.KEYCODE_BUTTON_R1, AKey.KEYCODE_BUTTON_R2 -> {
+                        val i = Tab.list.indexOf(tab); onTab(Tab.list[(i + 1) % Tab.list.size]); sfx.tick(); true
+                    }
                     AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> { play(); true }
                     AKey.KEYCODE_BUTTON_X -> { current?.let { onFav(it); sfx.tick() }; true }
                     AKey.KEYCODE_BUTTON_Y -> { onSearch(); sfx.tick(); true }
@@ -218,8 +222,6 @@ fun ShelfScreen(
             },
     ) {
 
-        // ---- slot strip dihapus (user: "garis itemnya buang aja / ganti shadow halus") ----
-
         // ---- rak ----
         val from = (index - 3).coerceAtLeast(0)
         val to = (index + 3).coerceAtMost(games.size - 1)
@@ -229,16 +231,18 @@ fun ShelfScreen(
                 val g = games[i]
                 val focused = d < 0.5f
                 val w = widthAt(d)
-                val h = w * aspect()
-                val lift = 8f * (1f - d.coerceAtMost(1f))
-                val bottom = CART_BOTTOM - lift
-                val xLeft = CENTER_X + (if (i >= index) 1f else -1f) * centerOffset(d) - w / 2f
-                val yTop = bottom - h
-                val room = if (focused) 6f else 0f
+                val h = w / CART_ASPECT
+                val lift = 10f * (1f - d.coerceAtMost(1f))
+                val cy = CART_BOTTOM - lift - h / 2f
+                val cx = CENTER_X + (if (i >= index) 1f else -1f) * centerOffset(d)
                 val isFocusedCart = i == index
 
+                val s = w / CartFrames.UNIT_W
+                val boxLeft = cx - CartFrames.CENTER_X * s
+                val boxTop = cy - CartFrames.CENTER_Y * s
+
                 key(g.id) {
-                    var art by remember(g.id) { mutableStateOf<ImageBitmap?>(null) }
+                    var art by remember(g.id) { mutableStateOf(preloadArt?.invoke(g)) }
                     LaunchedEffect(g.id, artVersion) {
                         art = withContext(Dispatchers.IO) { artOf(g) }
                     }
@@ -246,72 +250,58 @@ fun ShelfScreen(
                     Box(
                         Modifier
                             .offset(
-                                x = (xLeft - room).dp,
-                                y = (yTop - room + if (isFocusedCart) yOff.value else 0f).dp,
+                                x = (boxLeft).dp,
+                                y = (boxTop + if (isFocusedCart) yOff.value else 0f).dp,
                             )
                             .graphicsLayer {
-                                val s = if (isFocusedCart) scale.value else 1f
-                                scaleX = s
-                                scaleY = s
-                                // skew perspektif halus: kartrid di kiri condong ke kiri,
-                                // kanan condong ke kanan (fan ala rak), fokus tegak
+                                val sc = if (isFocusedCart) scale.value else 1f
+                                scaleX = sc
+                                scaleY = sc
                                 rotationZ = if (isFocusedCart) 0f else {
                                     val side = if (i < index) -1f else 1f
-                                    side * (1.8f + 0.9f * d.coerceAtMost(1f)).coerceAtMost(3.5f)
+                                    side * (1.4f + 0.7f * d.coerceAtMost(1f)).coerceAtMost(2.6f)
                                 }
-                                transformOrigin = TransformOrigin(0.5f, 1f)
-                            },
+                                transformOrigin = TransformOrigin(0.5f, 0.5f)
+                            }
+                            .then(
+                                if (isFocusedCart) {
+                                    Modifier.pointerInput(g.id) {
+                                        detectDragGestures(
+                                            onDragStart = { sfx.tick() },
+                                            onDragEnd = { scope.launch { settle() } },
+                                            onDragCancel = { scope.launch { settle() } },
+                                        ) { change, drag ->
+                                            change.consume()
+                                            scope.launch {
+                                                spin.snapTo(
+                                                    (spin.value + drag.x * 0.55f)
+                                                        .coerceIn(CartFrames.MIN_ANGLE, CartFrames.MAX_ANGLE)
+                                                )
+                                            }
+                                            scope.launch {
+                                                tilt.snapTo(
+                                                    (tilt.value + drag.y * 0.22f).coerceIn(-10f, 10f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else Modifier
+                            ),
                     ) {
                         Cartridge(
                             sys = g.sys,
                             art = art,
+                            title = g.title,
+                            meta = metaOf(g),
                             w = w,
-                            h = h,
                             focused = focused,
-                            clipFrac = if (isFocusedCart) clipFrac else 0f,
-                            showBand = focused,
-                            showNotch = focused,
+                            spin = if (isFocusedCart) spin.value else 0f,
+                            tilt = if (isFocusedCart) tilt.value else 0f,
+                            loading = isFocusedCart && loading != null,
                         )
-                        // spinner loading di ATAS boxart kartrid fokus (bukan overlay fullscreen)
-                        if (isFocusedCart && loading != null) {
-                            Box(
-                                Modifier
-                                    .fillMaxSize()
-                                    .background(T.bg.copy(alpha = 0.45f)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(46.dp),
-                                    color = T.lime,
-                                    strokeWidth = 3.5.dp,
-                                )
-                            }
-                        }
                     }
                 }
             }
-        }
-
-        // ---- flash + ring pas nyentuh mulut slot ----
-        if (flash) {
-            Box(
-                Modifier
-                    .offset(x = (CENTER_X - 78f).dp, y = (SLOT_TOP - 2f).dp)
-                    .size(156.dp, 7.dp)
-                    .background(T.lime.copy(alpha = 0.85f)),
-            )
-            Box(
-                Modifier
-                    .offset(x = (CENTER_X - 96f).dp, y = (SLOT_TOP - 12f).dp)
-                    .size(192.dp, 46.dp)
-                    .border(2.dp, T.lime.copy(alpha = 0.5f)),
-            )
-            Box(
-                Modifier
-                    .offset(x = (CENTER_X - 96f).dp, y = (SLOT_TOP - 12f).dp)
-                    .size(192.dp, 46.dp)
-                    .border(6.dp, T.lime.copy(alpha = 0.10f)),
-            )
         }
 
         // ---- top bar ----
@@ -324,32 +314,36 @@ fun ShelfScreen(
             horizontalArrangement = Arrangement.spacedBy(22.dp),
         ) {
             for (s in Tab.list) {
-                        val on = s == tab
-                        Row(
-                            Modifier
-                                .clickable { onTab(s); sfx.tick() }
-                                .drawBehind { if (on) drawRect(T.muted) }
-                                .padding(horizontal = 18.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Box(Modifier.size(10.dp, 10.dp).background(shellColor(s.sys?.shell ?: FAV_SHELL, on)))
-                            Box(Modifier.width(8.dp))
-                            Text(
-                                text = s.label,
-                                color = if (on) T.lime else T.fg.copy(alpha = 0.75f),
-                                fontFamily = MONO,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Box(Modifier.width(8.dp))
-                            Text(
-                                text = (counts[s.key] ?: 0).toString().padStart(2, '0'),
-                                color = if (on) T.lime else T.mutedFg,
-                                fontFamily = MONO,
-                                fontSize = 11.sp,
-                            )
-                        }
-                    }
+                val on = s == tab
+                Row(
+                    Modifier
+                        .clickable { onTab(s); sfx.tick() }
+                        .drawBehind { if (on) drawRect(T.muted) }
+                        .padding(horizontal = 18.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier
+                            .size(10.dp, 10.dp)
+                            .background(shellColor(s.sys?.shell ?: FAV_SHELL, on))
+                    )
+                    Box(Modifier.width(8.dp))
+                    Text(
+                        text = s.label,
+                        color = if (on) T.lime else T.fg.copy(alpha = 0.75f),
+                        fontFamily = MONO,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Box(Modifier.width(8.dp))
+                    Text(
+                        text = (counts[s.key] ?: 0).toString().padStart(2, '0'),
+                        color = if (on) T.lime else T.mutedFg,
+                        fontFamily = MONO,
+                        fontSize = 11.sp,
+                    )
+                }
+            }
             Box(Modifier.weight(1f))
 
             if (scanning || artRunning) {
@@ -374,7 +368,7 @@ fun ShelfScreen(
         Column(
             Modifier
                 .fillMaxWidth()
-                .offset(y = 470.dp),
+                .offset(y = TITLE_Y.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (current != null) {
@@ -396,51 +390,33 @@ fun ShelfScreen(
                     modifier = Modifier.padding(top = 8.dp),
                 )
             } else {
-                Text(
-                    text = "EMPTY SHELF",
-                    color = T.mutedFg,
-                    fontFamily = DISPLAY,
-                    fontSize = 34.sp,
-                )
+                Text(text = "EMPTY SHELF", color = T.mutedFg, fontFamily = DISPLAY, fontSize = 34.sp)
             }
-        }
-
-        // ---- tip animasi ----
-        tip?.let {
-            Text(
-                text = it,
-                color = T.lime,
-                fontFamily = MONO,
-                fontSize = 14.sp,
-                letterSpacing = 1.4.sp,
-                modifier = Modifier.offset(y = 478.dp).fillMaxWidth(),
-                textAlign = TextAlign.Center,
-            )
         }
 
         // ---- hint bar ----
-        if (tip == null) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .offset(y = 598.dp),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                HintItem("< >", "move")
-                ListSpacer()
-                HintItem("A", "insert")
-                ListSpacer()
-                HintItem("X", "favorite")
-                ListSpacer()
-                HintItem("Y", "search")
-                ListSpacer()
-                HintItem("B", "settings")
-                ListSpacer()
-                HintItem("SEL", "menu")
-            }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .offset(y = 598.dp),
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            HintItem("< >", "move")
+            ListSpacer()
+            HintItem("DRAG", "puter")
+            ListSpacer()
+            HintItem("A", "insert")
+            ListSpacer()
+            HintItem("X", "fav")
+            ListSpacer()
+            HintItem("Y", "search")
+            ListSpacer()
+            HintItem("B", "settings")
+            ListSpacer()
+            HintItem("SEL", "menu")
         }
 
-        // ---- menu aksi kartrid (SELECT): set/remove boxart, favorite ----
+        // ---- menu aksi kartrid (SELECT) ----
         if (cartMenu) {
             val g = current
             val opts = listOf("Set custom boxart", "Remove custom boxart", if (g?.fav == true) "Unfavorite" else "Favorite")
@@ -452,7 +428,11 @@ fun ShelfScreen(
                     .border(1.5.dp, T.hairline),
             ) {
                 Column(Modifier.fillMaxSize().padding(16.dp)) {
-                    Text((g?.title ?: "").uppercase(), color = T.mutedFg, fontFamily = MONO, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        (g?.title ?: "").uppercase(),
+                        color = T.mutedFg, fontFamily = MONO, fontSize = 10.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
                     Box(Modifier.height(8.dp))
                     for ((i, o) in opts.withIndex()) {
                         Row(
@@ -484,12 +464,11 @@ fun ShelfScreen(
     }
 }
 
-private fun metaOf(g: Game): String {
+internal fun metaOf(g: Game): String {
     val parts = ArrayList<String>()
     g.region?.let { parts.add(it) }
     parts.add(sizeText(g.sizeBytes))
-    if (g.plays > 0) parts.add("played ${g.plays}×")
-    else parts.add("never played")
+    if (g.plays > 0) parts.add("main ${g.plays}×") else parts.add("never played")
     return parts.joinToString("  ·  ")
 }
 
@@ -505,8 +484,11 @@ internal fun HintItem(key: String, label: String) {
         Box(
             Modifier
                 .size(46.dp, 22.dp)
-                .border(1.2.dp, T.hairline)
-                .background(T.surface),
+                .drawBehind {
+                    drawRect(T.shadow, topLeft = Offset(2f, 2f), size = Size(size.width, size.height))
+                }
+                .background(T.surface)
+                .border(1.2.dp, T.hairline),
             contentAlignment = Alignment.Center,
         ) {
             Text(key, color = T.fg, fontFamily = MONO, fontSize = 11.sp)
@@ -528,7 +510,6 @@ private fun CogIcon(color: Color = T.mutedFg) {
                 val toothLen = minR * 0.47f
                 val toothW = minR * 0.15f
                 val toothH = minR * 0.17f
-                // 8 gigi gear, diputar 45° tiap gigi
                 for (k in 0 until 8) {
                     rotate(k * 45f, pivot = c) {
                         drawRect(
@@ -538,7 +519,6 @@ private fun CogIcon(color: Color = T.mutedFg) {
                         )
                     }
                 }
-                // badan gear + lubang tengah (warna surface biar 'bolong')
                 drawCircle(color, radius = body, center = c)
                 drawCircle(T.surface, radius = body * 0.42f, center = c)
             },
@@ -554,7 +534,8 @@ private fun ListSpacer() {
 private fun EmptyPanel() {
     Box(
         Modifier
-            .offset(x = (CENTER_X - 220f).dp, y = 300.dp)
+            // center vertikal di layar: (640 - 190) / 2 = 225
+            .offset(x = (CENTER_X - 220f).dp, y = ((640f - 190f) / 2f).dp)
             .size(440.dp, 190.dp)
             .drawBehind {
                 drawRect(T.black, topLeft = Offset(7f, 7f), size = Size(size.width, size.height))
@@ -572,5 +553,3 @@ private fun EmptyPanel() {
         )
     }
 }
-
-

@@ -1,503 +1,340 @@
 package id.iqbaldev.kartrid.ui
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
+import android.graphics.Canvas as ACanvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.util.LruCache
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.core.content.res.ResourcesCompat
 import id.iqbaldev.kartrid.R
 import id.iqbaldev.kartrid.core.Sys
-import androidx.compose.ui.graphics.asImageBitmap
 
 /**
- * Kartrid GBA/GB: shell + notch + label boxart + band nama sistem.
- * `clipFrac` 0..1 = bagian bawah yang ketutup (animasi masuk slot, PLAN §3b).
+ * Kartrid Switch 3D ala rak beneran.
  *
- * Tiga style (probing 17 Okt 2026):
- * - A: kotak bersih, boxart FULL (Fit, nggak ke-crop)
- * - B: siluet GBA (atas rounded, bawah bevel) + kontak emas + shade
- * - C "RetroShell": shell abu gradasi rounded-top, label beige, boxart KECIL
- *   (~46% lebar, nggak penuh) + pin kontak gold — simplifikasi dari referensi
- *   kartrid retro (index.html/user, 17 Okt 2026). Semua style pakai Fit.
- * - D "3D": shell photoreal hasil render (drawable-nodpi/cart_gba.png) + boxart
- *   di-overlay pas label rect — 17 Okt 2026, user: "cari file 3d cartridge gba".
- * - E "Switch": kartrid ala Nintendo Switch — card rounded tipis, top cap WARNA
- *   per-sistem (sys.shell), area art rounded di bawah + micro label — 17 Okt.
+ * Pipeline:
+ *  1. Shell plastik dirender 27 frame (−26°…+26°, step 2°) dengan lubang label transparan
+ *     — lihat [CartFrames]. PNG ada di drawable-nodpi/cf_00..cf_26.png.
+ *  2. Label (boxart 1:1 + panel warna sistem) digambar runtime per game ke bitmap 560×360,
+ *     lalu dipetakan ke 4 titik pojok label frame aktif pakai `setPolyToPoly` → perspektif
+ *     beneran, boxart tetap dinamis (custom art jalan).
+ *  3. Frame digambar SETELAH label: lubang transparan bikin bibir recess, lip highlight, dan
+ *     bayangan jatuh nempel otomatis ke label.
  */
-enum class CartStyle { A, B, C, D, E }
+object CartLabel {
+    const val W = 560
+    const val H = 360
+    const val ART_W = 360                    // art 1:1 persis, nol crop kalau sumbernya persegi
+
+    private val cache = LruCache<String, ImageBitmap>(12)
+
+    fun get(
+        key: String,
+        sys: Sys,
+        art: ImageBitmap?,
+        title: String,
+        meta: String,
+        tfDisplay: Typeface?,
+        tfMonoBold: Typeface?,
+        tfMono: Typeface?,
+    ): ImageBitmap {
+        cache.get(key)?.let { return it }
+        val bmp = build(sys, art, title, meta, tfDisplay, tfMonoBold, tfMono)
+        cache.put(key, bmp)
+        return bmp
+    }
+
+    fun clear() = cache.evictAll()
+
+    private fun build(
+        sys: Sys,
+        art: ImageBitmap?,
+        title: String,
+        meta: String,
+        tfDisplay: Typeface?,
+        tfMonoBold: Typeface?,
+        tfMono: Typeface?,
+    ): ImageBitmap {
+        val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
+        val c = ACanvas(bmp)
+        val panel = panelColor(sys)
+        val fg = panelFg(sys)
+        val sub = panelSub(sys)
+
+        c.drawColor(panel)
+
+        // --- art 1:1 di kiri (square, full tinggi label), nol crop untuk sumber persegi ---
+        if (art != null) {
+            val src = centerCrop(art.width, art.height, ART_W, H)
+            c.drawBitmap(art.asAndroidBitmap(), src, Rect(0, 0, ART_W, H), Paint(Paint.FILTER_BITMAP_FLAG))
+        } else {
+            c.drawColor(0xFF2A2338.toInt())
+            val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = tfDisplay; color = 0xFFB0A8C2.toInt(); textSize = 64f; textAlign = Paint.Align.CENTER
+            }
+            c.drawText(sys.label, ART_W / 2f, H / 2f + 6f, p)
+            p.typeface = tfMono
+            p.textSize = 13f
+            p.color = 0x88B0A8C2.toInt()
+            p.letterSpacing = 0.35f
+            c.drawText("NO ART", ART_W / 2f, H / 2f + 46f, p)
+        }
+
+        // --- panel kanan ---
+        val x = ART_W + 24f
+        val pw = W - ART_W - 44f
+
+        val pCode = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = tfDisplay
+            textSize = 58f
+            color = fg
+            letterSpacing = -0.02f
+        }
+        c.drawText(sys.label, x, 74f, pCode)
+
+        val pName = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = tfMonoBold
+            textSize = 10.5f
+            color = sub
+            letterSpacing = 0.16f
+        }
+        c.drawText(sys.longLabel.uppercase(), x, 96f, pName)
+
+        val rule = Paint().apply { color = fg; alpha = 60 }
+        c.drawRect(x, 110f, x + pw, 111.4f, rule)
+
+        val pTitle = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = tfMonoBold
+            textSize = 16.5f
+            color = fg
+        }
+        var y = 140f
+        for (line in wrap(title, pTitle, pw, 4)) {
+            c.drawText(line, x, y, pTitle)
+            y += 20f
+        }
+
+        val pMeta = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = tfMono
+            textSize = 10f
+            color = sub
+            letterSpacing = 0.04f
+        }
+        c.drawText(meta.uppercase(), x, H - 18f, pMeta)
+
+        return bmp.asImageBitmap()
+    }
+
+    private fun centerCrop(sw: Int, sh: Int, dw: Int, dh: Int): Rect {
+        val scale = maxOf(dw.toFloat() / sw, dh.toFloat() / sh)
+        val w = (dw / scale).toInt().coerceAtMost(sw)
+        val h = (dh / scale).toInt().coerceAtMost(sh)
+        val left = (sw - w) / 2
+        val top = (sh - h) / 2
+        return Rect(left, top, left + w, top + h)
+    }
+
+    private fun wrap(text: String, p: Paint, maxW: Float, maxLines: Int): List<String> {
+        val out = ArrayList<String>()
+        var line = StringBuilder()
+        for (word in text.split(' ')) {
+            val cand = if (line.isEmpty()) word else "$line $word"
+            if (p.measureText(cand) <= maxW) {
+                line = StringBuilder(cand)
+            } else {
+                if (line.isNotEmpty()) out.add(line.toString())
+                if (out.size >= maxLines) break
+                line = StringBuilder(word)
+            }
+        }
+        if (line.isNotEmpty() && out.size < maxLines) out.add(line.toString())
+        if (out.size == maxLines) {
+            var last = out.last()
+            while (p.measureText("$last…") > maxW && last.length > 1) last = last.dropLast(1)
+            out[out.size - 1] = "$last…"
+        }
+        return out
+    }
+
+    fun panelColor(sys: Sys): Int = when (sys) {
+        Sys.GB -> 0xFFCFC9DD.toInt()
+        Sys.GBC -> 0xFF4F86AE.toInt()
+        Sys.GBA -> 0xFF5A4C93.toInt()
+    }
+
+    private fun panelFg(sys: Sys): Int = when (sys) {
+        Sys.GB -> 0xFF16121F.toInt()
+        else -> 0xFFF6F3FF.toInt()
+    }
+
+    private fun panelSub(sys: Sys): Int = when (sys) {
+        Sys.GB -> 0xFF4F4862.toInt()
+        Sys.GBC -> 0xFFD6E6F0.toInt()
+        else -> 0xFFD8D0F2.toInt()
+    }
+}
+
+private val frameCache = object : LruCache<Int, ImageBitmap>(10) {}
+
+private fun frameBitmap(idx: Int, ctx: android.content.Context): ImageBitmap {
+    frameCache.get(idx)?.let { return it }
+    val bmp = BitmapFactory.decodeResource(ctx.resources, CartFrames.RES[idx]).asImageBitmap()
+    frameCache.put(idx, bmp)
+    return bmp
+}
+
+/** rasio kartrid fisik: 31,5 / 21,5 mm */
+const val CART_ASPECT = 31.5f / 21.5f
 
 @Composable
 fun Cartridge(
     sys: Sys,
     art: ImageBitmap?,
+    title: String,
+    meta: String,
     w: Float,
-    h: Float,
     focused: Boolean,
+    spin: Float = 0f,
+    tilt: Float = 0f,
+    loading: Boolean = false,
     modifier: Modifier = Modifier,
-    clipFrac: Float = 0f,
-    showNotch: Boolean = focused,
-    showBand: Boolean = focused,
-    style: CartStyle = CartStyle.E,
-) {
-    if (style == CartStyle.D) {
-        Cartridge3D(sys, art, w, h, focused, modifier, clipFrac)
-        return
-    }
-    if (style == CartStyle.E) {
-        CartridgeSwitch(sys, art, w, h, focused, modifier, clipFrac)
-        return
-    }
-    val outlineRoom = if (focused) 12f else 0f
-    val shape: Shape = when (style) {
-        CartStyle.A -> if (sys.rounded) RoundedCornerShape(8.dp) else RectangleShape
-        CartStyle.B ->
-            RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomEnd = 3.dp, bottomStart = 3.dp)
-        CartStyle.C ->
-            RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 4.dp, bottomStart = 4.dp)
-        CartStyle.D -> RoundedCornerShape(8.dp) // unreachable (early return), biar exhaustive
-        CartStyle.E -> RoundedCornerShape(8.dp) // unreachable (early return), biar exhaustive
-    }
-    val shell: Color = shellColor(sys.shell, focused)
-    val shadow = if (focused) 8f else 5f
-
-    Box(modifier = modifier.size((w + outlineRoom).dp, (h + outlineRoom).dp)) {
-
-        // hard shadow
-        Box(
-            Modifier
-                .size(w.dp, h.dp)
-                .align(Alignment.Center)
-                .offset(x = shadow.dp, y = shadow.dp)
-                .background(T.shadow),
-        )
-
-        // shell
-        Box(
-            Modifier
-                .size(w.dp, h.dp)
-                .align(Alignment.Center)
-                .drawWithContent {
-                    val bottom = size.height * (1f - clipFrac.coerceIn(0f, 1f))
-                    clipRect(right = size.width, bottom = bottom) {
-                        this@drawWithContent.drawContent()
-                    }
-                }
-                .clip(shape)
-                .then(
-                    if (style == CartStyle.C) {
-                        Modifier.background(
-                            Brush.verticalGradient(
-                                listOf(Color(0xFFD0CDBC), Color(0xFFB4B0A0), Color(0xFF9B978B)),
-                            ),
-                        )
-                    } else {
-                        Modifier.background(shell)
-                    },
-                )
-                .border(2.dp, T.black, shape),
-        ) {
-            // label + boxart
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(10.dp)
-                    .border(2.dp, if (style == CartStyle.C) Color(0xB3171711) else Color(0x99000000))
-                    .background(if (style == CartStyle.C) Color(0xFFDED9C8) else T.labelBg),
-            ) {
-                // inner hairline label (style C) — framing dobel biar gak flat
-                if (style == CartStyle.C) {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .padding(3.dp)
-                            .border(1.dp, Color(0x26000000)),
-                    )
-                }
-                when {
-                    art == null -> PlaceholderView(sys, focused)
-                    style == CartStyle.C -> CartLabelC(sys, art, w, h, focused)
-                    else -> {
-                        Image(
-                            bitmap = art,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit,
-                            colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
-                        )
-                        if (style == CartStyle.B) {
-                            Box(
-                                Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(bottom = 6.dp)
-                                    .width((w * 0.22f).dp)
-                                    .height(9.dp)
-                                    .background(Color(0xFFD9AE4E))
-                                    .border(1.dp, Color(0x66000000)),
-                            )
-                        }
-                        if (style == CartStyle.B) {
-                            Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(26.dp)
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(Color(0x33000000), Color(0x00000000)),
-                                        ),
-                                    ),
-                            )
-                        }
-                    }
-                }
-            }
-
-            // band nama sistem di atas
-            if (showBand) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(16.dp)
-                        .background(Color(0xBD000000)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = sys.longLabel,
-                        color = Color.White,
-                        fontFamily = MONO,
-                        fontSize = 7.5.sp,
-                        letterSpacing = 1.2.sp,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                    )
-                }
-            }
-
-            // notch / grip atas-kiri (C: grip ganda ala kartrid asli)
-            if (showNotch) {
-                Box(
-                    Modifier
-                        .offset(x = 12.dp, y = 0.dp)
-                        .size(30.dp, 9.dp)
-                        .background(T.bg)
-                        .border(2.dp, T.black),
-                )
-                if (style == CartStyle.C) {
-                    Box(
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .offset(x = -12.dp, y = 0.dp)
-                            .size(16.dp, 6.dp)
-                            .background(T.bg)
-                            .border(2.dp, T.black),
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** label beige + boxart kecil (nggak penuh) + teks mikro — style C */
-@Composable
-private fun CartLabelC(sys: Sys, art: ImageBitmap, w: Float, h: Float, focused: Boolean) {
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(horizontal = 8.dp, vertical = 5.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = sys.longLabel,
-            color = Color(0xFF4A4230),
-            fontFamily = MONO,
-            fontSize = 5.4.sp,
-            letterSpacing = 1.2.sp,
-            maxLines = 1,
-        )
-        // art 1:1 square + rounded (user: "covernya itu 1:1 aja, rounded gambar nya")
-        Box(
-            Modifier
-                .padding(vertical = 6.dp)
-                .size((h * 0.52f).dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF141414))
-                .border(1.5.dp, Color(0x99000000), RoundedCornerShape(10.dp)),
-        ) {
-            Image(
-                bitmap = art,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit,
-                colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
-            )
-        }
-        Text(
-            text = "8-BIT · ${sys.ext.uppercase()}",
-            color = Color(0xFF4A4230),
-            fontFamily = MONO,
-            fontSize = 4.4.sp,
-            letterSpacing = 1.1.sp,
-            maxLines = 1,
-        )
-        Text(
-            text = "KRT-${sys.label}-01",
-            color = Color(0x664A4230),
-            fontFamily = MONO,
-            fontSize = 3.4.sp,
-            letterSpacing = 0.9.sp,
-            maxLines = 1,
-        )
-    }
-}
-
-/** placeholder: monogram sistem + caption (belum ada boxart) */
-@Composable
-private fun PlaceholderView(sys: Sys, focused: Boolean) {
-    Box(
-        Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = sys.label,
-                color = T.mutedFg.copy(alpha = if (focused) 0.85f else 0.5f),
-                fontFamily = DISPLAY,
-                fontSize = if (sys.rounded) 22.sp else 26.sp,
-                letterSpacing = 2.sp,
-            )
-            Text(
-                text = "NO ART",
-                color = T.mutedFg.copy(alpha = if (focused) 0.55f else 0.35f),
-                fontFamily = MONO,
-                fontSize = 7.5.sp,
-                letterSpacing = 2.2.sp,
-            )
-        }
-    }
-}
-
-/** Style D: shell render 3D (cart_gba.png) + boxart di label rect */
-@Composable
-private fun Cartridge3D(
-    sys: Sys,
-    art: ImageBitmap?,
-    w: Float,
-    h: Float,
-    focused: Boolean,
-    modifier: Modifier = Modifier,
-    clipFrac: Float = 0f,
 ) {
     val ctx = LocalContext.current
-    val shell = remember {
-        runCatching {
-            BitmapFactory.decodeResource(ctx.resources, R.drawable.cart_gba)?.asImageBitmap()
-        }.getOrNull()
-    }
-    val shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 6.dp, bottomStart = 6.dp)
+    val density = LocalDensity.current
 
-    Box(
-        modifier
-            .size(w.dp, h.dp)
-            .drawWithContent {
-                val bottom = size.height * (1f - clipFrac.coerceIn(0f, 1f))
-                clipRect(right = size.width, bottom = bottom) { this@drawWithContent.drawContent() }
-            }
-            .clip(shape),
-    ) {
-        if (shell != null) {
-            Image(
-                bitmap = shell,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit,
-                colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
-            )
-        }
-        // label rect (fraksi dari asset cart_gba.png) — overlay boxart biar "nempel"
-        val lx = w * 0.115f
-        val ly = h * 0.205f
-        val lw = w * 0.770f
-        val lh = h * 0.650f
-        Box(
-            Modifier
-                .offset(x = lx.dp, y = ly.dp)
-                .size(lw.dp, lh.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF101014)),
-        ) {
-            if (art != null) {
-                Image(
-                    bitmap = art,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit,
-                )
-            } else {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = sys.label,
-                        color = T.mutedFg.copy(alpha = 0.8f),
-                        fontFamily = DISPLAY,
-                        fontSize = 24.sp,
-                        letterSpacing = 2.sp,
-                    )
-                }
-            }
+    val tfDisplay = remember { runCatching { ResourcesCompat.getFont(ctx, R.font.archivo_black) }.getOrNull() }
+    val tfMonoBold = remember { runCatching { ResourcesCompat.getFont(ctx, R.font.jetbrains_mono_700) }.getOrNull() }
+    val tfMono = remember { runCatching { ResourcesCompat.getFont(ctx, R.font.jetbrains_mono_500) }.getOrNull() }
+
+    val idx = CartFrames.indexFor(spin)
+    val frame = remember(idx, ctx) { frameBitmap(idx, ctx) }
+    val label = remember(sys, title, meta, art) {
+        CartLabel.get("$title|${sys.key}|${art?.hashCode()}", sys, art, title, meta, tfDisplay, tfMonoBold, tfMono)
+    }
+
+    val scale = w / CartFrames.UNIT_W
+    val imgW = CartFrames.IMG_W * scale
+    val imgH = CartFrames.IMG_H * scale
+
+    val dimFilter = remember(focused) {
+        if (focused) null else {
+            // saturasi 0.92 + brightness 0.58 (kartrid non-fokus)
+            val base = ColorMatrix().apply { setSaturation(0.92f) }
+            val a = base.array.copyOf()
+            for (i in a.indices) if (i % 5 != 4) a[i] *= 0.58f
+            val out = ColorMatrix().apply { set(a) }
+            ColorMatrixColorFilter(out)
         }
     }
-}
 
-/** Style E: kartrid ala Nintendo Switch — card rounded, top cap warna sistem, art bawah */
-@Composable
-private fun CartridgeSwitch(
-    sys: Sys,
-    art: ImageBitmap?,
-    w: Float,
-    h: Float,
-    focused: Boolean,
-    modifier: Modifier = Modifier,
-    clipFrac: Float = 0f,
-) {
-    val shape = RoundedCornerShape(20.dp)
-    val capH = h * 0.17f
-    val artY = capH + 12f
-    val artH = h - artY - 30f
-
-    Box(
-        modifier
-            .size(w.dp, h.dp)
-            .shadow(10.dp, shape, clip = false, ambientColor = Color(0x80151515), spotColor = Color(0x55151515))
-            .drawWithContent {
-                val bottom = size.height * (1f - clipFrac.coerceIn(0f, 1f))
-                clipRect(right = size.width, bottom = bottom) { this@drawWithContent.drawContent() }
-            }
-            .clip(shape)
-            .border(1.5.dp, Color(0x88171711), shape),
-    ) {
-        // body plastik putih ala kartrid Switch (cool white)
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color(0xFFFDFDFB), Color(0xFFE9E7E0)))),
+    val labelPaint = remember(dimFilter) {
+        Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG).apply { colorFilter = dimFilter }
+    }
+    val framePaint = remember(dimFilter) {
+        Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG).apply { colorFilter = dimFilter }
+    }
+    val matrix = remember { Matrix() }
+    val srcPts = remember {
+        floatArrayOf(
+            0f, 0f,
+            CartLabel.W.toFloat(), 0f,
+            CartLabel.W.toFloat(), CartLabel.H.toFloat(),
+            0f, CartLabel.H.toFloat(),
         )
-        // top cap MERAH ala kartrid Switch asli (bukan warna per-sistem)
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(capH.dp)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color(0xFFE60012).copy(alpha = 0.92f), Color(0xFFB8000D)),
-                    ),
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = sys.longLabel,
-                color = Color(0xEEFFFFFF),
-                fontFamily = MONO,
-                fontSize = 5.6.sp,
-                letterSpacing = 1.4.sp,
-                maxLines = 1,
-            )
-        }
-        // area art SQUARE (rasio asli boxart libretro ~1:1) — nol letterbox
-        val artSize = w * 0.82f
-        Box(
-            Modifier
-                .offset(y = artY.dp)
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(artH.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (art != null) {
-                Box(
-                    Modifier
-                        .size(artSize.dp)
-                        .aspectRatio(art.width.toFloat() / art.height.toFloat())
-                        .shadow(5.dp, RoundedCornerShape(10.dp), clip = false, ambientColor = Color(0x66000000), spotColor = Color(0x33000000))
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFFEFEDE6))
-                        .border(1.2.dp, Color(0x40000000), RoundedCornerShape(10.dp))
-                        .padding(2.dp),
-                ) {
-                    Image(
-                        bitmap = art,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Fit,
-                        colorFilter = if (focused) null else ColorFilter.colorMatrix(dimMatrix()),
-                    )
+    }
+    val dstPts = remember { FloatArray(8) }
+
+    val q = CartFrames.QUADS[idx]
+
+    Box(
+        modifier = modifier
+            .size(imgW.dp, imgH.dp)
+            .graphicsLayer {
+                rotationX = tilt
+                cameraDistance = 16f * density.density
+            },
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            drawIntoCanvas { c ->
+                val nc = c.nativeCanvas
+
+                // 1. label ke quad (di belakang frame)
+                for (i in 0 until 4) {
+                    dstPts[i * 2] = q[i * 2] * scale
+                    dstPts[i * 2 + 1] = q[i * 2 + 1] * scale
                 }
-            } else {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = sys.label,
-                        color = T.mutedFg.copy(alpha = 0.55f),
-                        fontFamily = DISPLAY,
-                        fontSize = 22.sp,
-                        letterSpacing = 2.sp,
-                    )
-                }
+                matrix.setPolyToPoly(srcPts, 0, dstPts, 0, 4)
+                nc.drawBitmap(label.asAndroidBitmap(), matrix, labelPaint)
+
+                // 2. shell plastik — lubang label transparan bikin recess nempel ke art
+                nc.drawBitmap(frame.asAndroidBitmap(), null, RectF(0f, 0f, imgW, imgH), framePaint)
             }
         }
-        // micro label bawah
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .offset(y = (h - 21f).dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "KARTRID · ${sys.ext.uppercase()}",
-                color = Color(0x8C171711),
-                fontFamily = MONO,
-                fontSize = 3.8.sp,
-                letterSpacing = 1.1.sp,
-                maxLines = 1,
-            )
+
+        if (loading) {
+            val cx = (0 until 4).sumOf { (q[it * 2] * scale).toDouble() }.toFloat() / 4f
+            val cy = (0 until 4).sumOf { (q[it * 2 + 1] * scale).toDouble() }.toFloat() / 4f
+            val inspection = LocalInspectionMode.current
+            val angle = if (inspection) {
+                90f
+            } else {
+                val tr = rememberInfiniteTransition(label = "cart-spin")
+                val a by tr.animateFloat(
+                    initialValue = 0f, targetValue = 360f,
+                    animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart),
+                    label = "cart-angle",
+                )
+                a
+            }
+            val r = w * 0.13f
+            val stroke = (r * 0.18f).coerceAtLeast(2f)
+            Canvas(Modifier.fillMaxSize()) {
+                drawCircle(T.bg.copy(alpha = 0.55f), radius = w * 0.20f, center = Offset(cx, cy))
+                drawArc(
+                    color = T.lime.copy(alpha = 0.22f), startAngle = 0f, sweepAngle = 360f,
+                    useCenter = false, topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
+                    style = Stroke(width = stroke, cap = StrokeCap.Round),
+                )
+                drawArc(
+                    color = T.lime, startAngle = angle, sweepAngle = 100f,
+                    useCenter = false, topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
+                    style = Stroke(width = stroke, cap = StrokeCap.Round),
+                )
+            }
         }
     }
-}
-
-/** saturate .6 + brightness .62 buat boxart non-fokus */
-private fun dimMatrix(): ColorMatrix = ColorMatrix().apply {
-    setToSaturation(0.6f)
-    for (r in 0..2) for (c in 0..4) this[r, c] = this[r, c] * 0.62f
 }

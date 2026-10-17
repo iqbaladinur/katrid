@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><title>KARTRID — probe kartrid 3D</title>
+<style>
+@font-face{font-family:Inter;font-weight:500;src:url('fonts/inter-500-latin.woff2') format('woff2')}
+@font-face{font-family:Inter;font-weight:700;src:url('fonts/inter-700-latin.woff2') format('woff2')}
+@font-face{font-family:ArchivoBlack;font-weight:400;src:url('fonts/archivo-black-400-latin.woff2') format('woff2')}
+@font-face{font-family:JBMono;font-weight:500;src:url('fonts/jetbrains-mono-500-latin.woff2') format('woff2')}
+@font-face{font-family:JBMono;font-weight:700;src:url('fonts/jetbrains-mono-700-latin.woff2') format('woff2')}
+:root{
+ --bg:#16121F; --surface:#201A2C; --fg:#EAE6F2; --muted:#2A2338; --muted_fg:#B0A8C2;
+ --hairline:#362E47; --ink:#5B5270; --shadow:#050309; --violet:#A98BFF; --lime:#D4F24E;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0b0910;font-family:Inter;padding:0}
+.screen{width:960px;height:640px;background:var(--bg);color:var(--fg);position:relative;overflow:hidden;display:none}
+.screen:target{display:block}
+.screen.tall{height:1180px}
+.mono{font-family:JBMono}
+
+/* furniture app */
+.top{height:84px;display:flex;align-items:center;gap:22px;padding:0 22px}
+.tab{display:flex;align-items:center;gap:8px;font-family:JBMono;font-size:15px;font-weight:700;color:rgba(234,230,242,.75)}
+.tab.on{color:var(--lime)}
+.tab .dot{width:10px;height:10px}
+.tab .cnt{font-size:11px;color:var(--muted_fg);font-weight:500}
+.tab.on .cnt{color:var(--lime)}
+.vtag{position:absolute;left:22px;top:96px;font-family:JBMono;font-size:9.5px;letter-spacing:1.6px;color:var(--muted_fg)}
+.vtag b{color:var(--lime)}
+.titleblock{position:absolute;left:0;right:0;top:470px;text-align:center}
+.titleblock h2{font-family:ArchivoBlack;font-size:34px;line-height:1.05}
+.titleblock p{font-family:JBMono;font-size:13.5px;color:var(--muted_fg);margin-top:8px;letter-spacing:.8px}
+.hint{position:absolute;left:0;right:0;top:598px;display:flex;justify-content:center;gap:24px;font-family:JBMono;font-size:11px;color:var(--muted_fg)}
+.hint b{color:var(--fg);border:1.2px solid var(--hairline);background:var(--surface);padding:3px 6px;margin-right:6px;font-weight:500;box-shadow:2px 2px 0 var(--shadow)}
+
+/* kartrid: art di belakang, frame plastik di depan (lubang label transparan) */
+.cart{position:absolute;filter:drop-shadow(0 8px 12px rgba(0,0,0,.55))}
+.cart .art{position:absolute;left:6.37%;top:9.21%;width:87.26%;height:81.58%;object-fit:cover}
+.cart .frameimg{position:absolute;inset:0;width:100%;height:100%}
+.cart .strip{position:absolute;left:7.4%;width:85.2%;bottom:11.2%;height:13.4%;background:rgba(16,12,22,.9);
+  display:flex;align-items:center;padding:0 6%;font-family:JBMono;font-weight:700;color:#F2EFF8;letter-spacing:.2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cart .strip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cart.dim{filter:brightness(.62) saturate(.9) drop-shadow(0 5px 8px rgba(0,0,0,.5))}
+.cart.lift{outline:none}
+.cart .glow{position:absolute;inset:-8px;border:2px solid rgba(212,242,78,.55);display:none}
+.cart.focus .glow{display:block}
+.ph{position:absolute;left:6.37%;top:9.21%;width:87.26%;height:81.58%;background:#DAD6CD;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.ph .big{font-family:ArchivoBlack;font-size:26px;color:#8E8877;letter-spacing:2px}
+.ph .small{font-family:JBMono;font-size:7px;letter-spacing:2px;color:#A29B88}
+
+/* spec */
+.spec{position:absolute;inset:0;padding:26px 30px}
+.spec h1{font-family:ArchivoBlack;font-size:25px}
+.spec .sub{font-family:JBMono;font-size:10px;letter-spacing:1.1px;color:var(--muted_fg);margin-top:7px}
+.rule{height:2px;background:var(--hairline);margin:14px 0 0}
+.flex{display:flex;gap:24px;margin-top:18px;align-items:flex-start}
+.beauty{width:430px;border:2px solid #0B0810;box-shadow:6px 6px 0 var(--shadow);background:var(--surface)}
+.beauty img{display:block;width:100%}
+.kv{font-family:JBMono;font-size:9.6px;line-height:1.65;color:var(--muted_fg)}
+.kv b{color:var(--fg)}
+.kv h4{font-family:JBMono;font-size:10.5px;letter-spacing:1.5px;color:var(--lime);margin-bottom:6px;font-weight:700}
+.rowlab{font-family:JBMono;font-weight:700;font-size:10.5px;letter-spacing:1.6px;color:var(--lime);margin:24px 0 0}
+.opts{display:flex;gap:26px;margin-top:12px}
+.opt{width:280px}
+.opt .stage{height:210px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1.5px solid var(--hairline)}
+.opt .cap{font-family:JBMono;font-size:9.2px;color:var(--muted_fg);margin-top:8px;line-height:1.55}
+.opt .cap b{color:var(--fg)}
+</style></head>
+<body>
+
+<!-- ============ P1: frame portrait, kartrid landscape ============ -->
+<div class="screen" id="p1">
+  <div class="top">
+    <div class="tab"><i class="dot" style="background:#BFBCCB"></i>GB<span class="cnt">128</span></div>
+    <div class="tab"><i class="dot" style="background:#6E9FC7"></i>GBC<span class="cnt">96</span></div>
+    <div class="tab on"><i class="dot" style="background:#5A4C93"></i>GBA<span class="cnt">214</span></div>
+  </div>
+  <div class="vtag">P1 · <b>kartrid landscape di frame portrait 214×296</b></div>
+
+  <div class="cart dim" style="left:373px;top:216px;width:150px;height:103px">
+    <img class="art" src="art/gba_Golden_Sun__USA__Europe_.png"><div class="strip" style="font-size:5px"><span>Golden Sun</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+  </div>
+  <div class="cart focus" style="left:385px;top:150px;width:190px;height:131px">
+    <img class="art" src="art/gba_Pokemon_-_Emerald_Version__USA__Europe_.png"><div class="strip" style="font-size:5px"><span>Pokémon Emerald Version</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+    <div class="glow"></div>
+  </div>
+  <div class="cart dim" style="left:437px;top:216px;width:150px;height:103px">
+    <img class="art" src="art/gba_Metroid_Fusion__USA_.png"><div class="strip" style="font-size:5px"><span>Metroid Fusion</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+  </div>
+
+  <div class="titleblock"><h2>Pokémon Emerald Version</h2><p>USA · 12.6 MB · main 17×</p></div>
+  <div class="hint"><span><b>◀ ▶</b>move</span><span><b>A</b>insert</span><span><b>X</b>favorite</span><span><b>Y</b>search</span><span><b>B</b>settings</span><span><b>SEL</b>menu</span></div>
+</div>
+
+<!-- ============ P2: rak landscape (geometri diubah) ============ -->
+<div class="screen" id="p2">
+  <div class="top">
+    <div class="tab"><i class="dot" style="background:#BFBCCB"></i>GB<span class="cnt">128</span></div>
+    <div class="tab"><i class="dot" style="background:#6E9FC7"></i>GBC<span class="cnt">96</span></div>
+    <div class="tab on"><i class="dot" style="background:#5A4C93"></i>GBA<span class="cnt">214</span></div>
+  </div>
+  <div class="vtag">P2 · <b>rak landscape — kartrid 300×206 (rasio asli 1,454)</b></div>
+
+  <div class="cart dim" style="left:-50px;top:300px;width:200px;height:138px;transform:rotate(-2deg);transform-origin:50% 100%">
+    <img class="art" src="art/gba_Castlevania_-_Aria_of_Sorrow__USA_.png"><div class="strip" style="font-size:6px"><span>Castlevania: Aria of Sorrow</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+  </div>
+  <div class="cart dim" style="left:90px;top:292px;width:200px;height:138px;transform:rotate(-1.4deg);transform-origin:50% 100%">
+    <img class="art" src="art/gba_Golden_Sun__USA__Europe_.png"><div class="strip" style="font-size:6px"><span>Golden Sun</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+  </div>
+  <div class="cart focus" style="left:330px;top:224px;width:300px;height:206px">
+    <img class="art" src="art/gba_Pokemon_-_Emerald_Version__USA__Europe_.png"><div class="strip" style="font-size:8px"><span>Pokémon Emerald Version</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+    <div class="glow"></div>
+  </div>
+  <div class="cart dim" style="left:670px;top:292px;width:200px;height:138px;transform:rotate(1.4deg);transform-origin:50% 100%">
+    <img class="art" src="art/gba_Metroid_Fusion__USA_.png"><div class="strip" style="font-size:6px"><span>Metroid Fusion</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+  </div>
+  <div class="cart dim" style="left:810px;top:300px;width:200px;height:138px;transform:rotate(2deg);transform-origin:50% 100%">
+    <img class="art" src="art/gba_Mario_Kart_-_Super_Circuit__USA_.png"><div class="strip" style="font-size:6px"><span>Mario Kart: Super Circuit</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+  </div>
+
+  <div class="titleblock" style="top:478px"><h2>Pokémon Emerald Version</h2><p>USA · 12.6 MB · main 17×</p></div>
+  <div class="hint"><span><b>◀ ▶</b>move</span><span><b>A</b>insert</span><span><b>X</b>favorite</span><span><b>Y</b>search</span><span><b>B</b>settings</span><span><b>SEL</b>menu</span></div>
+</div>
+
+<!-- ============ P3: kartrid berdiri (diputar 90°) ============ -->
+<div class="screen" id="p3">
+  <div class="top">
+    <div class="tab"><i class="dot" style="background:#BFBCCB"></i>GB<span class="cnt">128</span></div>
+    <div class="tab"><i class="dot" style="background:#6E9FC7"></i>GBC<span class="cnt">96</span></div>
+    <div class="tab on"><i class="dot" style="background:#5A4C93"></i>GBA<span class="cnt">214</span></div>
+  </div>
+  <div class="vtag">P3 · <b>kartrid “berdiri” di frame portrait (art ikut miring 90°)</b></div>
+
+  <div class="cart dim" style="left:150px;top:236px;width:140px;height:96px;transform:rotate(90deg);transform-origin:50% 50%">
+    <img class="art" src="art/gba_Golden_Sun__USA__Europe_.png"><div class="strip" style="font-size:5px"><span>Golden Sun</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+  </div>
+  <div class="cart focus" style="left:376px;top:160px;width:208px;height:143px;transform:rotate(90deg);transform-origin:50% 50%">
+    <img class="art" src="art/gba_Pokemon_-_Emerald_Version__USA__Europe_.png"><div class="strip" style="font-size:6px"><span>Pokémon Emerald Version</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+    <div class="glow"></div>
+  </div>
+  <div class="cart dim" style="left:668px;top:236px;width:140px;height:96px;transform:rotate(90deg);transform-origin:50% 50%">
+    <img class="art" src="art/gba_Metroid_Fusion__USA_.png"><div class="strip" style="font-size:5px"><span>Metroid Fusion</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+  </div>
+
+  <div class="titleblock"><h2>Pokémon Emerald Version</h2><p>USA · 12.6 MB · main 17×</p></div>
+  <div class="hint"><span><b>◀ ▶</b>move</span><span><b>A</b>insert</span><span><b>X</b>favorite</span><span><b>Y</b>search</span><span><b>B</b>settings</span><span><b>SEL</b>menu</span></div>
+</div>
+
+<!-- ============ SPEC ============ -->
+<div class="screen tall" id="spec">
+  <div class="spec">
+    <h1>KARTRID SWITCH 3D — HASIL PROBE</h1>
+    <div class="sub">model prosedural (three.js headless) · 31,5 × 21,5 × 3,4 mm · recess label asli 0,30 mm · render 1002×689 px alpha</div>
+    <div class="rule"></div>
+
+    <div class="flex">
+      <div class="beauty"><img src="cart3d/beauty_art.png"></div>
+      <div class="kv" style="width:420px">
+        <h4>ASSET</h4>
+        <div><b>cart_frame.png</b> — plastik + recess, lubang label transparan (1002×689, alpha)</div>
+        <div><b>cart_shell.png</b> — versi ada plate (fallback no-art)</div>
+        <div>label rect = <b>6,37% / 9,21% / 87,26% / 81,58%</b> dari bbox kartrid</div>
+        <div>overlay boxart = <b>1 gambar</b>, di belakang frame → bibir recess & bayangan jatuh otomatis</div>
+        <div style="margin-top:10px"><b>ukuran app</b>: 642×441 (≈2× dari 300 dp) · PNG 380 KB</div>
+        <div><b>waktu render</b>: 2,7 s/frame (SwiftShader, no GPU)</div>
+        <div style="margin-top:10px"><b>ganti warna shell</b> = 1 parameter (per sistem) tanpa render ulang bentuk</div>
+      </div>
+    </div>
+
+    <div class="rowlab">3 PENEMPATAN — FRAME TETAP 214×296?</div>
+    <div class="opts">
+      <div class="opt">
+        <div class="stage"><div class="cart" style="position:relative;left:auto;top:auto;width:230px;height:158px">
+          <img class="art" src="art/gba_Pokemon_-_Emerald_Version__USA__Europe_.png"><div class="strip" style="font-size:6px"><span>Pokémon Emerald Version</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+        </div></div>
+        <div class="cap"><b>P1</b> · kartrid ngambang di frame portrait<br>sisa ruang kosong 60%</div>
+      </div>
+      <div class="opt">
+        <div class="stage"><div class="cart" style="position:relative;left:auto;top:auto;width:270px;height:186px">
+          <img class="art" src="art/gba_Pokemon_-_Emerald_Version__USA__Europe_.png"><div class="strip" style="font-size:8px"><span>Pokémon Emerald Version</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+        </div></div>
+        <div class="cap"><b>P2</b> · rak landscape, kartrid rasio asli<br>3 kartrid + 2 peek, tanpa ruang mati</div>
+      </div>
+      <div class="opt">
+        <div class="stage"><div class="cart" style="position:relative;left:auto;top:auto;width:190px;height:131px;transform:rotate(90deg)">
+          <img class="art" src="art/gba_Pokemon_-_Emerald_Version__USA__Europe_.png"><div class="strip" style="font-size:5px"><span>Pokémon Emerald Version</span></div><img class="frameimg" src="cart3d/cart_frame.png">
+        </div></div>
+        <div class="cap"><b>P3</b> · berdiri (diputar 90°)<br>fisiknya bener, judul kebaca miring</div>
+      </div>
+    </div>
+
+    <div class="rowlab">SHELL PER SISTEM — kartrid switch asli putih; ini opsi kalau mau warna sistem</div>
+    <div class="opts" style="margin-top:10px">
+      <div class="opt" style="width:200px"><div class="stage" style="height:150px;border:none">
+        <div class="cart" style="position:relative;left:auto;top:auto;width:170px;height:117px">
+          <img class="art" src="art/gb_Super_Mario_Land__World_.png"><img class="frameimg" src="cart3d/frame_gb.png"></div></div>
+        <div class="cap"><b>GB</b> · abu #BFBCCB</div></div>
+      <div class="opt" style="width:200px"><div class="stage" style="height:150px;border:none">
+        <div class="cart" style="position:relative;left:auto;top:auto;width:170px;height:117px">
+          <img class="art" src="art/gbc_Pokemon_-_Crystal_Version__USA_.png"><img class="frameimg" src="cart3d/frame_gbc.png"></div></div>
+        <div class="cap"><b>GBC</b> · teal #9FC6D8</div></div>
+      <div class="opt" style="width:200px"><div class="stage" style="height:150px;border:none">
+        <div class="cart" style="position:relative;left:auto;top:auto;width:170px;height:117px">
+          <img class="art" src="art/gba_Pokemon_-_Emerald_Version__USA__Europe_.png"><img class="frameimg" src="cart3d/frame_gba.png"></div></div>
+        <div class="cap"><b>GBA</b> · indigo #B9AEE8</div></div>
+    </div>
+  </div>
+</div>
+
+<script>document.title='ready';</script>
+</body></html>
