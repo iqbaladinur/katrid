@@ -14,3 +14,23 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Test render output (Robolectric)
+previews/
+android/app/build/
+
+# Design pipeline output — regenerate with design/cart3d/seq.py
+design/art/
+design/shots/
+design/archive/
+design/cart3d/seq/
+design/cart3d/labels/
+design/cart3d/*.png
+design/cart3d/meta.json
+design/cart3d/seq_meta.json
+
+# Builds
+*.apk
+
+# Scratch scripts
+design/scratch/
