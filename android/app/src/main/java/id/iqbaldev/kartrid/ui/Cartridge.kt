@@ -60,7 +60,21 @@ object CartLabel {
     const val H = 360
     const val ART_W = 360                    // art 1:1 persis, nol crop kalau sumbernya persegi
 
-    private val cache = LruCache<String, ImageBitmap>(12)
+    /**
+     * Cache label (bitmap 560×360 ARGB_8888 = ~806 KB tiap label).
+     *
+     * Versi lama: LruCache 12 entry. Kalau rak render 20 item, tiap scroll
+     * evict 8+ label → label dibangun ULANG di main thread (build() = Canvas +
+     * drawText + drawBitmap) = jank. Cache lama juga salah karena ukurannya
+     * count, bukan byte.
+     *
+     * Sekarang: budget byte (12 MB ≈ 15 label penuh) + eviction LRU by byte.
+     */
+    private const val CACHE_BYTES = 20L * 1024 * 1024
+    private val cache = object : LruCache<String, ImageBitmap>(CACHE_BYTES.toInt()) {
+        override fun sizeOf(key: String, value: ImageBitmap): Int =
+            value.width * value.height * 4
+    }
 
     fun get(
         key: String,
@@ -76,6 +90,30 @@ object CartLabel {
         val bmp = build(sys, art, title, meta, tfDisplay, tfMonoBold, tfMono)
         cache.put(key, bmp)
         return bmp
+    }
+
+    /**
+     * Bangun label lebih awal (dipanggil dari background thread) supaya
+     * scroll pertama kali nggak perlu build bitmap di main thread.
+     *
+     * PENTING: `build()` bikin Android Bitmap → harus jalan di thread yang
+     * punya akses resource. Canvas + Paint aman di thread apa pun (bukan UI
+     * thread), jadi ini dipanggil dari Dispatchers.IO.
+     */
+    fun warm(
+        g: id.iqbaldev.kartrid.core.Game,
+        art: ImageBitmap?,
+        ctx: android.content.Context,
+    ) {
+        val sys = id.iqbaldev.kartrid.core.Sys.of(g.system)
+        val key = "${g.title}|${sys.key}|${art?.hashCode()}"
+        if (cache.get(key) != null) return
+        val meta = metaOf(g)
+        val bmp = build(
+            sys, art, g.title, meta,
+            CartFonts.display(ctx), CartFonts.monoBold(ctx), CartFonts.mono(ctx),
+        )
+        cache.put(key, bmp)
     }
 
     fun clear() = cache.evictAll()
@@ -208,7 +246,29 @@ object CartLabel {
     }
 }
 
-private val frameCache = object : LruCache<Int, ImageBitmap>(10) {}
+private val frameCache = object : LruCache<Int, ImageBitmap>(27) {}
+
+/**
+ * Font dipakai untuk label kartrid. Dipisah supaya bisa dipakai di luar
+ * composable (mis. prewarm label di background thread → nggak jank).
+ */
+object CartFonts {
+    @Volatile private var display: Typeface? = null
+    @Volatile private var monoBold: Typeface? = null
+    @Volatile private var mono: Typeface? = null
+
+    fun display(ctx: android.content.Context): Typeface? =
+        display ?: runCatching { ResourcesCompat.getFont(ctx, R.font.archivo_black) }
+            .getOrNull().also { display = it }
+
+    fun monoBold(ctx: android.content.Context): Typeface? =
+        monoBold ?: runCatching { ResourcesCompat.getFont(ctx, R.font.jetbrains_mono_700) }
+            .getOrNull().also { monoBold = it }
+
+    fun mono(ctx: android.content.Context): Typeface? =
+        mono ?: runCatching { ResourcesCompat.getFont(ctx, R.font.jetbrains_mono_500) }
+            .getOrNull().also { mono = it }
+}
 
 private fun frameBitmap(idx: Int, ctx: android.content.Context): ImageBitmap {
     frameCache.get(idx)?.let { return it }

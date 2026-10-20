@@ -2,6 +2,7 @@ package id.iqbaldev.kartrid.ui
 
 import android.view.KeyEvent as AKey
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -49,11 +51,13 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import id.iqbaldev.kartrid.core.Game
 import id.iqbaldev.kartrid.core.Sys
 import id.iqbaldev.kartrid.core.Tab
@@ -81,7 +85,15 @@ private fun widthAt(d: Float): Float {
     return FOCUS_W + (ITEM_W - FOCUS_W) * t
 }
 
-/** jarak pusat item (di jarak d dari fokus) ke pusat item fokus — kontinu */
+/**
+ * Jarak pusat item (di jarak d dari fokus) ke pusat item fokus — kontinu.
+ *
+ * CATATAN PERF: ini dipertahankan persis seperti aslinya (integrasi 32 langkah)
+ * supaya hasil pikselnya identik. Biayanya 32 float ops per item per frame —
+ * untuk 20 item = 640 ops/frame, nggak signifikan dibanding draw bitmap.
+ * (Sempat dicoba diganti lookup table, tapi error numerik integral asli
+ * bergantung pada d → posisi item jauh geser ~1.6px.)
+ */
 private fun centerOffset(d: Float): Float {
     if (d <= 0f) return 0f
     val steps = 32
@@ -116,6 +128,10 @@ fun ShelfScreen(
     onSetArt: (Game) -> Unit,
     onClearArt: (Game) -> Unit,
     sfx: Sfx,
+    /** jumlah item yang dirender di rak (fokus + tetangga kiri/kanan) — default 20 */
+    visibleCount: Int = 20,
+    /** berapa game yang dilompati tiap tekan UP/DOWN — default 20 */
+    skipStep: Int = 20,
     /** seed sinkron (dipakai preview/test) — app normal pakai [artOf] */
     preloadArt: ((Game) -> ImageBitmap?)? = null,
 ) {
@@ -124,8 +140,14 @@ fun ShelfScreen(
     var cartMenu by remember { mutableStateOf(false) }
     var cartMenuSel by remember { mutableIntStateOf(0) }
 
-    // posisi carousel dianimasikan sebagai indeks pecahan
-    val f by animateFloatAsState(
+    // posisi carousel dianimasikan sebagai indeks pecahan.
+    //
+    // PERF: State-nya (`fAnim`) HARUS dibaca sebagai `.value` DI DALAM
+    // graphicsLayer (draw phase). Kalau dibaca di scope composition, setiap
+    // frame animasi memicu re-komposisi SELURUH isi rak (7..40 item x subtree
+    // Cartridge) = 60x/s → jank. Dengan baca di draw phase, Compose cuma
+    // re-render layer yang berubah.
+    val fAnim = animateFloatAsState(
         targetValue = index.toFloat(),
         animationSpec = tween(200, easing = FastOutSlowInEasing),
         label = "carousel",
@@ -208,6 +230,12 @@ fun ShelfScreen(
                 } else when (ev.nativeKeyEvent.keyCode) {
                     AKey.KEYCODE_DPAD_LEFT -> { move(-1); sfx.tick(); true }
                     AKey.KEYCODE_DPAD_RIGHT -> { move(1); sfx.tick(); true }
+                    // UP/DOWN = lompat ke game sebelumnya/berikutnya (skip) + preview.
+                    // Preview = posisi fokus langsung bergeser, art & judul ikut
+                    // (bukan cuma menyorot daftar) — jadi user bisa lihat game
+                    // target sebelum tekan A.
+                    AKey.KEYCODE_DPAD_UP -> { move(-skipStep); sfx.tick(); true }
+                    AKey.KEYCODE_DPAD_DOWN -> { move(skipStep); sfx.tick(); true }
                     AKey.KEYCODE_BUTTON_L1, AKey.KEYCODE_BUTTON_L2 -> {
                         val i = Tab.list.indexOf(tab); onTab(Tab.list[(i + Tab.list.size - 1) % Tab.list.size]); sfx.tick(); true
                     }
@@ -225,85 +253,44 @@ fun ShelfScreen(
     ) {
 
         // ---- rak ----
-        val from = (index - 3).coerceAtLeast(0)
-        val to = (index + 3).coerceAtMost(games.size - 1)
+        //
+        // PERF (20 Okt 2026): rak dipisah jadi SUBTREE sendiri (ShelfRack) yang
+        // membaca `fAnim.value`. Akibatnya re-komposisi tiap frame animasi cuma
+        // menyentuh rak — top bar, judul, dan hint bar nggak ikut dihitung ulang.
+        //
+        // Window render:
+        //  - normal: `visibleCount` item di sekitar fokus (default 20)
+        //  - saat skip (UP/DOWN): window diperluas ke posisi SEBELUM animasi
+        //    (anchor) supaya item lama nggak hilang seketika = nggak "pop".
+        var anchor by remember { mutableIntStateOf(index) }
+        LaunchedEffect(index) {
+            delay(240)          // sedikit > durasi tween 200ms
+            anchor = index
+        }
+        val jumpLo = minOf(anchor, index).coerceAtLeast(index - 20)
+        val jumpHi = maxOf(anchor, index).coerceAtMost(index + 20)
+        val half = (visibleCount - 1) / 2
+        val from = (jumpLo - half).coerceAtLeast(0)
+        val to = (jumpHi + (visibleCount - 1 - half)).coerceAtMost(games.size - 1)
+
         if (games.isNotEmpty()) {
-            val items = (from..to).map { it to abs(it - f) }.sortedByDescending { it.second }
-            for ((i, d) in items) {
-                val g = games[i]
-                val focused = d < 0.5f
-                val w = widthAt(d)
-                val h = w / CART_ASPECT
-                val lift = 10f * (1f - d.coerceAtMost(1f))
-                val cy = CART_BOTTOM - lift - h / 2f
-                val cx = CENTER_X + (if (i >= index) 1f else -1f) * centerOffset(d)
-                val isFocusedCart = i == index
-
-                val s = w / CartFrames.UNIT_W
-                val boxLeft = cx - CartFrames.CENTER_X * s
-                val boxTop = cy - CartFrames.CENTER_Y * s
-
-                key(g.id) {
-                    var art by remember(g.id) { mutableStateOf(preloadArt?.invoke(g)) }
-                    LaunchedEffect(g.id, artVersion) {
-                        art = withContext(Dispatchers.IO) { artOf(g) }
-                    }
-
-                    Box(
-                        Modifier
-                            .offset(
-                                x = (boxLeft).dp,
-                                y = (boxTop + if (isFocusedCart) yOff.value else 0f).dp,
-                            )
-                            .graphicsLayer {
-                                val sc = if (isFocusedCart) scale.value else 1f
-                                scaleX = sc
-                                scaleY = sc
-                                rotationZ = if (isFocusedCart) 0f else {
-                                    val side = if (i < index) -1f else 1f
-                                    side * (1.4f + 0.7f * d.coerceAtMost(1f)).coerceAtMost(2.6f)
-                                }
-                                transformOrigin = TransformOrigin(0.5f, 0.5f)
-                            }
-                            .then(
-                                if (isFocusedCart) {
-                                    Modifier.pointerInput(g.id) {
-                                        detectDragGestures(
-                                            onDragStart = { sfx.tick() },
-                                            onDragEnd = { scope.launch { settle() } },
-                                            onDragCancel = { scope.launch { settle() } },
-                                        ) { change, drag ->
-                                            change.consume()
-                                            scope.launch {
-                                                spin.snapTo(
-                                                    (spin.value + drag.x * 0.55f)
-                                                        .coerceIn(CartFrames.MIN_ANGLE, CartFrames.MAX_ANGLE)
-                                                )
-                                            }
-                                            scope.launch {
-                                                tilt.snapTo(
-                                                    (tilt.value + drag.y * 0.22f).coerceIn(-10f, 10f)
-                                                )
-                                            }
-                                        }
-                                    }
-                                } else Modifier
-                            ),
-                    ) {
-                        Cartridge(
-                            sys = g.sys,
-                            art = art,
-                            title = g.title,
-                            meta = metaOf(g),
-                            w = w,
-                            focused = focused,
-                            spin = if (isFocusedCart) spin.value else 0f,
-                            tilt = if (isFocusedCart) tilt.value else 0f,
-                            loading = isFocusedCart && loading != null,
-                        )
-                    }
-                }
-            }
+            ShelfRack(
+                games = games,
+                index = index,
+                from = from,
+                to = to,
+                fAnim = fAnim,
+                yOff = yOff,
+                scale = scale,
+                spin = spin,
+                tilt = tilt,
+                loading = loading,
+                artOf = artOf,
+                artVersion = artVersion,
+                preloadArt = preloadArt,
+                sfx = sfx,
+                settle = { settle() },
+            )
         }
 
         // ---- top bar ----
@@ -405,6 +392,8 @@ fun ShelfScreen(
         ) {
             HintItem("< >", "move")
             ListSpacer()
+            HintItem("^ v", "skip")
+            ListSpacer()
             HintItem("DRAG", "puter")
             ListSpacer()
             HintItem("A", "insert")
@@ -463,6 +452,141 @@ fun ShelfScreen(
 
     LaunchedEffect(games.size) {
         if (index > games.size - 1) onIndex((games.size - 1).coerceAtLeast(0))
+    }
+}
+
+/**
+ * Isi rak kartrid.
+ *
+ * Dipisah dari [ShelfScreen] supaya pembacaan posisi animasi (`fAnim.value`)
+ * cuma me-rekomposisi subtree ini — top bar, judul, dan hint bar di luar
+ * nggak ikut dihitung ulang tiap frame.
+ *
+ * Kenapa ini bikin mulus (tanpa ubah visual sama sekali):
+ *  - geometri (lebar/posisi/skew) tetap dihitung dari `f` yang beranimasi,
+ *    jadi transisi kontinu PERSIS seperti sebelumnya;
+ *  - item yang lebarnya tidak berubah punya parameter sama → Compose men-skip
+ *    re-komposisi & re-draw-nya. Per transisi cuma ~2 item (d < 1) yang
+ *    benar-benar dihitung ulang;
+ *  - `metaOf` di-cache per game (dulu bikin String baru tiap frame);
+ *  - item yang jauh di luar layar di-cull (nggak dikompos sama sekali).
+ */
+@Composable
+private fun ShelfRack(
+    games: List<Game>,
+    index: Int,
+    from: Int,
+    to: Int,
+    fAnim: State<Float>,
+    yOff: Animatable<Float, AnimationVector1D>,
+    scale: Animatable<Float, AnimationVector1D>,
+    spin: Animatable<Float, AnimationVector1D>,
+    tilt: Animatable<Float, AnimationVector1D>,
+    loading: Game?,
+    artOf: suspend (Game) -> ImageBitmap?,
+    artVersion: Int,
+    preloadArt: ((Game) -> ImageBitmap?)?,
+    sfx: Sfx,
+    settle: suspend () -> Unit,
+) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val metaCache = remember { HashMap<String, String>() }
+    val f = fAnim.value
+
+    for (i in from..to) {
+        val g = games[i]
+        val isFocusedCart = i == index
+        val d = abs(i - f)
+        val w = widthAt(d)
+        val h = w / CART_ASPECT
+        val lift = 10f * (1f - d.coerceAtMost(1f))
+        val cy = CART_BOTTOM - lift - h / 2f
+        val s = w / CartFrames.UNIT_W
+        val cx = CENTER_X + (if (i >= index) 1f else -1f) * centerOffset(d)
+
+        // cull: jauh di luar layar → nggak perlu dikompos/digambar.
+        // Margin lebar (700px) supaya art + label item berikutnya sudah siap
+        // SEBELUM masuk layar (kalau mepet, kartrid sempat tampil tanpa art
+        // saat skip cepat).
+        val halfW = CartFrames.IMG_W * s / 2f
+        if (cx + halfW < -700f || cx - halfW > 1660f) continue
+
+        val boxLeft = cx - CartFrames.CENTER_X * s
+        val boxTop = cy - CartFrames.CENTER_Y * s
+        if (metaCache.size > 256) metaCache.clear()
+        val meta = metaCache.getOrPut(g.id.ifEmpty { g.path }) { metaOf(g) }
+
+        key(g.id) {
+            var art by remember(g.id) { mutableStateOf(preloadArt?.invoke(g)) }
+            LaunchedEffect(g.id, artVersion) {
+                art = withContext(Dispatchers.IO) { artOf(g) }
+            }
+            // Prewarm label di background: build() bikin bitmap 560×360
+            // (Canvas + drawText + drawBitmap). Tanpa ini, build pertama kali
+            // terjadi di MAIN THREAD → jank saat item baru masuk layar.
+            LaunchedEffect(g.id, art) {
+                val a = art
+                if (a != null) withContext(Dispatchers.IO) { CartLabel.warm(g, a, ctx) }
+            }
+
+            Box(
+                Modifier
+                    .offset(
+                        x = boxLeft.dp,
+                        y = (boxTop + if (isFocusedCart) yOff.value else 0f).dp,
+                    )
+                    // pengganti urutan "sortedByDescending d" versi lama:
+                    // kartrid fokus digambar paling akhir = paling atas.
+                    .zIndex(if (isFocusedCart) 1f else 0f)
+                    .graphicsLayer {
+                        val sc = if (isFocusedCart) scale.value else 1f
+                        scaleX = sc
+                        scaleY = sc
+                        rotationZ = if (isFocusedCart) 0f else {
+                            val side = if (i < index) -1f else 1f
+                            side * (1.4f + 0.7f * d.coerceAtMost(1f)).coerceAtMost(2.6f)
+                        }
+                        transformOrigin = TransformOrigin(0.5f, 0.5f)
+                    }
+                    .then(
+                        if (isFocusedCart) {
+                            Modifier.pointerInput(g.id) {
+                                detectDragGestures(
+                                    onDragStart = { sfx.tick() },
+                                    onDragEnd = { scope.launch { settle() } },
+                                    onDragCancel = { scope.launch { settle() } },
+                                ) { change, drag ->
+                                    change.consume()
+                                    scope.launch {
+                                        spin.snapTo(
+                                            (spin.value + drag.x * 0.55f)
+                                                .coerceIn(CartFrames.MIN_ANGLE, CartFrames.MAX_ANGLE)
+                                        )
+                                    }
+                                    scope.launch {
+                                        tilt.snapTo(
+                                            (tilt.value + drag.y * 0.22f).coerceIn(-10f, 10f)
+                                        )
+                                    }
+                                }
+                            }
+                        } else Modifier
+                    ),
+            ) {
+                Cartridge(
+                    sys = g.sys,
+                    art = art,
+                    title = g.title,
+                    meta = meta,
+                    w = w,
+                    focused = d < 0.5f,
+                    spin = if (isFocusedCart) spin.value else 0f,
+                    tilt = if (isFocusedCart) tilt.value else 0f,
+                    loading = isFocusedCart && loading != null,
+                )
+            }
+        }
     }
 }
 

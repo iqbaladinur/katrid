@@ -478,6 +478,7 @@ private fun KartridRoot(
                 },
                 onClearArt = { clearCustomArt(it) },
                 sfx = sfx,
+                skipStep = settings.shelfSkip,
             )
         } else if (screen == 1) {
             SettingsScreen(

@@ -118,4 +118,6 @@ data class Settings(
     val onboarded: Boolean = false,
     val lastIndex: Map<String, Int> = emptyMap(),
     val animEnabled: Boolean = true,
+    /** berapa game yang dilompati tiap tekan UP/DOWN di rak (default 20) */
+    val shelfSkip: Int = 20,
 )

@@ -216,6 +216,15 @@ fun SettingsScreen(
                     set = { onUpdate(settings.copy(animEnabled = it)) },
                 ),
             )
+            add(
+                Row.Choices(
+                    name = "Skip step (up/down)",
+                    sub = "games jumped per UP/DOWN press on the shelf",
+                    options = listOf("5", "10", "20", "30", "50"),
+                    current = settings.shelfSkip.toString(),
+                    pick = { onUpdate(settings.copy(shelfSkip = it.toIntOrNull() ?: 20)) },
+                ),
+            )
             add(Row.Info(name = "Orientation", sub = "locked landscape (3:2)", value = "960×640"))
             add(Row.Info(name = "Design canvas", sub = "all sizes scaled proportionally", value = "960×640 px"))
         }
