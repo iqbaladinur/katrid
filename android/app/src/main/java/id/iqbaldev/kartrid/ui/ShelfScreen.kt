@@ -73,6 +73,8 @@ private const val FOCUS_W = 305f            // lebar kartrid fokus
 private const val ITEM_W = 200f             // lebar tetangga
 private const val GAP = 46f
 private const val TITLE_Y = 470f
+/** sudut istirahat kartrid fokus: serong mentok, sisi kanan menjauh ke belakang */
+private const val REST_SPIN = CartFrames.MAX_ANGLE
 
 private fun widthAt(d: Float): Float {
     val t = d.coerceIn(0f, 1f)
@@ -131,7 +133,7 @@ fun ShelfScreen(
 
     val yOff = remember { Animatable(0f) }
     val scale = remember { Animatable(1f) }
-    val spin = remember { Animatable(0f) }          // derajat, pivot = pusat kartrid
+    val spin = remember { Animatable(REST_SPIN) }   // derajat, pivot = pusat kartrid
     val tilt = remember { Animatable(0f) }
     var loading by remember { mutableStateOf<Game?>(null) }
 
@@ -143,7 +145,7 @@ fun ShelfScreen(
     suspend fun settle() {
         coroutineScope {
             launch {
-                spin.animateTo(0f, spring(dampingRatio = 0.6f, stiffness = 380f))
+                spin.animateTo(REST_SPIN, spring(dampingRatio = 0.6f, stiffness = 380f))
             }
             launch {
                 tilt.animateTo(0f, spring(dampingRatio = 0.7f, stiffness = 420f))

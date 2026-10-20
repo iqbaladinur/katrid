@@ -88,7 +88,7 @@ Or use the helper, which builds, installs and launches on the connected device:
 | **Y** | search |
 | **B** | settings |
 | **SELECT** | cartridge menu (set / remove custom boxart, favourite) |
-| Drag on the focused cartridge | spin it; release to snap back to centre |
+| Drag on the focused cartridge | spin it; release to snap back to its resting angle (right edge back, at the rotation limit) |
 
 ## How it works
 
