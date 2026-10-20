@@ -66,6 +66,13 @@ class ArtCache(ctx: Context) {
         return b
     }
 
+    /**
+     * Bitmap dari MEMORI saja (tanpa sentuh disk) — dipakai rak untuk mengisi
+     * state awal item. Kalau hit, label bisa langsung dibangun dengan art yang
+     * benar (nggak dibangun dua kali: tanpa art lalu dengan art).
+     */
+    fun peek(g: Game): Bitmap? = mem.get(g.id)
+
     /** true kalau berhasil dapat + simpan */
     suspend fun fetch(g: Game, targetPx: Int = 256): Boolean = withContext(Dispatchers.IO) {
         if (get(g) != null) return@withContext true

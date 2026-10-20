@@ -63,9 +63,12 @@ import id.iqbaldev.kartrid.core.Sys
 import id.iqbaldev.kartrid.core.Tab
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 
 // geometri rak (px, basis kanvas 960x640) — kartrid LANDSCAPE rasio asli 31,5:21,5
@@ -128,30 +131,51 @@ fun ShelfScreen(
     onSetArt: (Game) -> Unit,
     onClearArt: (Game) -> Unit,
     sfx: Sfx,
-    /** jumlah item yang dirender di rak (fokus + tetangga kiri/kanan) — default 20 */
-    visibleCount: Int = 20,
+    /** jumlah item yang dirender di rak (fokus + tetangga kiri/kanan) */
+    visibleCount: Int = 7,
     /** berapa game yang dilompati tiap tekan UP/DOWN — default 20 */
     skipStep: Int = 20,
     /** seed sinkron (dipakai preview/test) — app normal pakai [artOf] */
     preloadArt: ((Game) -> ImageBitmap?)? = null,
+    /** art dari MEMORI saja (tanpa IO) — biar label nggak dibangun 2x */
+    peekArt: ((Game) -> ImageBitmap?)? = null,
 ) {
     val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
     val current = games.getOrNull(index)
     var cartMenu by remember { mutableStateOf(false) }
     var cartMenuSel by remember { mutableIntStateOf(0) }
 
-    // posisi carousel dianimasikan sebagai indeks pecahan.
+    // posisi carousel: indeks pecahan yang dianimasikan.
     //
-    // PERF: State-nya (`fAnim`) HARUS dibaca sebagai `.value` DI DALAM
-    // graphicsLayer (draw phase). Kalau dibaca di scope composition, setiap
-    // frame animasi memicu re-komposisi SELURUH isi rak (7..40 item x subtree
-    // Cartridge) = 60x/s → jank. Dengan baca di draw phase, Compose cuma
-    // re-render layer yang berubah.
-    val fAnim = animateFloatAsState(
-        targetValue = index.toFloat(),
-        animationSpec = tween(200, easing = FastOutSlowInEasing),
-        label = "carousel",
-    )
+    // PERF: `pos` dibaca sebagai `.value` di dalam ShelfRack → re-komposisi
+    // tiap frame cuma menyentuh rak.
+    //
+    // SKIP (UP/DOWN) = SNAP, bukan tween. Tween 20 langkah bikin satu frame
+    // harus ngekompos puluhan kartrid (window melebar ke posisi lama + baru)
+    // = lag. Snap = instan; boxart target disiapkan dulu (prewarm, max 60ms)
+    // supaya nggak sempat tampil tanpa art.
+    val pos = remember { Animatable(index.toFloat()) }
+    LaunchedEffect(index) {
+        val target = index.toFloat()
+        if (abs(target - pos.value) > 1.5f) pos.snapTo(target)
+        else pos.animateTo(target, tween(200, easing = FastOutSlowInEasing))
+    }
+
+    // Prewarm label tujuan SKIP (UP/DOWN) saat idle — supaya pas tombol ditekan
+    // boxart+label sudah siap, tanpa nambah latency di keypress.
+    // Dilakukan bertahap (satu per satu, jeda 40ms) biar nggak spike memory/CPU.
+    LaunchedEffect(index, skipStep, artVersion) {
+        delay(450)                     // tunggu animasi & input reda
+        withContext(Dispatchers.IO) {
+            val target = (index + skipStep).coerceIn(0, (games.size - 1).coerceAtLeast(0))
+            val jobs = ((target - 3)..(target + 3)).mapNotNull { j ->
+                val gg = games.getOrNull(j) ?: return@mapNotNull null
+                async { runCatching { artOf(gg)?.let { CartLabel.warm(gg, it, ctx, artVersion) } } }
+            }
+            jobs.awaitAll()
+        }
+    }
 
     val yOff = remember { Animatable(0f) }
     val scale = remember { Animatable(1f) }
@@ -162,6 +186,34 @@ fun ShelfScreen(
     fun move(delta: Int) {
         if (games.isEmpty()) return
         onIndex((index + delta).coerceIn(0, games.size - 1))
+    }
+
+    /**
+     * Skip (UP/DOWN): lompat [delta] game + preview.
+     *
+     * Lompatan besar TIDAK dianimasikan (lihat `pos.snapTo`) — tween 20 langkah
+     * bikin frame pertama berat. Sebagai gantinya, boxart+label tujuan disiapkan
+     * dulu di background (best-effort, maksimal 60ms) lalu lompat. Batas waktu
+     * penting: kalau storage lambat, jangan sampai tombol terasa nge-lag.
+     */
+    fun skip(delta: Int) {
+        if (games.isEmpty()) return
+        val target = (index + delta).coerceIn(0, games.size - 1)
+        if (target == index) return
+        scope.launch {
+            withTimeoutOrNull(110) {
+                withContext(Dispatchers.IO) {
+                    // PARALEL: 7 label × ~15ms kalau serial = 105ms+ (keburu
+                    // timeout, sisa item tetap bangun label di main thread).
+                    val jobs = ((target - 3)..(target + 3)).mapNotNull { j ->
+                        val gg = games.getOrNull(j) ?: return@mapNotNull null
+                        async { runCatching { artOf(gg)?.let { CartLabel.warm(gg, it, ctx, artVersion) } } }
+                    }
+                    jobs.awaitAll()
+                }
+            }
+            onIndex(target)
+        }
     }
 
     suspend fun settle() {
@@ -234,8 +286,8 @@ fun ShelfScreen(
                     // Preview = posisi fokus langsung bergeser, art & judul ikut
                     // (bukan cuma menyorot daftar) — jadi user bisa lihat game
                     // target sebelum tekan A.
-                    AKey.KEYCODE_DPAD_UP -> { move(-skipStep); sfx.tick(); true }
-                    AKey.KEYCODE_DPAD_DOWN -> { move(skipStep); sfx.tick(); true }
+                    AKey.KEYCODE_DPAD_UP -> { skip(-skipStep); sfx.tick(); true }
+                    AKey.KEYCODE_DPAD_DOWN -> { skip(skipStep); sfx.tick(); true }
                     AKey.KEYCODE_BUTTON_L1, AKey.KEYCODE_BUTTON_L2 -> {
                         val i = Tab.list.indexOf(tab); onTab(Tab.list[(i + Tab.list.size - 1) % Tab.list.size]); sfx.tick(); true
                     }
@@ -258,20 +310,12 @@ fun ShelfScreen(
         // membaca `fAnim.value`. Akibatnya re-komposisi tiap frame animasi cuma
         // menyentuh rak — top bar, judul, dan hint bar nggak ikut dihitung ulang.
         //
-        // Window render:
-        //  - normal: `visibleCount` item di sekitar fokus (default 20)
-        //  - saat skip (UP/DOWN): window diperluas ke posisi SEBELUM animasi
-        //    (anchor) supaya item lama nggak hilang seketika = nggak "pop".
-        var anchor by remember { mutableIntStateOf(index) }
-        LaunchedEffect(index) {
-            delay(240)          // sedikit > durasi tween 200ms
-            anchor = index
-        }
-        val jumpLo = minOf(anchor, index).coerceAtLeast(index - 20)
-        val jumpHi = maxOf(anchor, index).coerceAtMost(index + 20)
+        // Window render: `visibleCount` item di sekitar fokus (default 7, sama
+        // seperti versi lama). Dijaga KECIL: makin banyak item dikompos, makin
+        // berat satu frame saat window bergeser.
         val half = (visibleCount - 1) / 2
-        val from = (jumpLo - half).coerceAtLeast(0)
-        val to = (jumpHi + (visibleCount - 1 - half)).coerceAtMost(games.size - 1)
+        val from = (index - half).coerceAtLeast(0)
+        val to = (index + (visibleCount - 1 - half)).coerceAtMost(games.size - 1)
 
         if (games.isNotEmpty()) {
             ShelfRack(
@@ -279,7 +323,7 @@ fun ShelfScreen(
                 index = index,
                 from = from,
                 to = to,
-                fAnim = fAnim,
+                fAnim = { pos.value },
                 yOff = yOff,
                 scale = scale,
                 spin = spin,
@@ -288,8 +332,9 @@ fun ShelfScreen(
                 artOf = artOf,
                 artVersion = artVersion,
                 preloadArt = preloadArt,
+                peekArt = peekArt,
                 sfx = sfx,
-                settle = { settle() },
+                settle = suspend { settle() },
             )
         }
 
@@ -477,7 +522,7 @@ private fun ShelfRack(
     index: Int,
     from: Int,
     to: Int,
-    fAnim: State<Float>,
+    fAnim: () -> Float,
     yOff: Animatable<Float, AnimationVector1D>,
     scale: Animatable<Float, AnimationVector1D>,
     spin: Animatable<Float, AnimationVector1D>,
@@ -486,13 +531,14 @@ private fun ShelfRack(
     artOf: suspend (Game) -> ImageBitmap?,
     artVersion: Int,
     preloadArt: ((Game) -> ImageBitmap?)?,
+    peekArt: ((Game) -> ImageBitmap?)?,
     sfx: Sfx,
     settle: suspend () -> Unit,
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val metaCache = remember { HashMap<String, String>() }
-    val f = fAnim.value
+    val f = fAnim()
 
     for (i in from..to) {
         val g = games[i]
@@ -518,7 +564,9 @@ private fun ShelfRack(
         val meta = metaCache.getOrPut(g.id.ifEmpty { g.path }) { metaOf(g) }
 
         key(g.id) {
-            var art by remember(g.id) { mutableStateOf(preloadArt?.invoke(g)) }
+            var art by remember(g.id) {
+                mutableStateOf(preloadArt?.invoke(g) ?: peekArt?.invoke(g))
+            }
             LaunchedEffect(g.id, artVersion) {
                 art = withContext(Dispatchers.IO) { artOf(g) }
             }
@@ -527,7 +575,7 @@ private fun ShelfRack(
             // terjadi di MAIN THREAD → jank saat item baru masuk layar.
             LaunchedEffect(g.id, art) {
                 val a = art
-                if (a != null) withContext(Dispatchers.IO) { CartLabel.warm(g, a, ctx) }
+                if (a != null) withContext(Dispatchers.IO) { CartLabel.warm(g, a, ctx, artVersion) }
             }
 
             Box(
@@ -588,6 +636,7 @@ private fun ShelfRack(
                     spin = if (isFocusedCart) spin.value else 0f,
                     tilt = if (isFocusedCart) tilt.value else 0f,
                     loading = isFocusedCart && loading != null,
+                    labelKey = CartLabel.labelKey(g.id, art, artVersion),
                 )
             }
         }

@@ -104,9 +104,10 @@ object CartLabel {
         g: id.iqbaldev.kartrid.core.Game,
         art: ImageBitmap?,
         ctx: android.content.Context,
+        artVersion: Int = 0,
     ) {
         val sys = id.iqbaldev.kartrid.core.Sys.of(g.system)
-        val key = "${g.title}|${sys.key}|${art?.hashCode()}"
+        val key = labelKey(g.id, art, artVersion)
         if (cache.get(key) != null) return
         val meta = metaOf(g)
         val bmp = build(
@@ -115,6 +116,21 @@ object CartLabel {
         )
         cache.put(key, bmp)
     }
+
+    /**
+     * Key cache label.
+     *
+     * PENTING: JANGAN pakai `art.hashCode()` — `Bitmap.asImageBitmap()` bikin
+     * wrapper BARU tiap panggilan, dan `AndroidImageBitmap` tidak men-delegasi
+     * hashCode ke bitmap-nya. Akibatnya key beda tiap kali → cache nggak pernah
+     * hit → label 560×360 dibangun ulang di main thread tiap item masuk layar
+     * (terukur 150ms/frame saat skip).
+     *
+     * Pakai identitas stabil: id game + ada/tidaknya art + versi art (supaya
+     * label di-rebuild sekali saat art selesai dimuat).
+     */
+    fun labelKey(gameId: String, art: ImageBitmap?, artVersion: Int): String =
+        "$gameId|${if (art != null) 1 else 0}|$artVersion"
 
     fun clear() = cache.evictAll()
 
@@ -292,6 +308,8 @@ fun Cartridge(
     tilt: Float = 0f,
     loading: Boolean = false,
     modifier: Modifier = Modifier,
+    /** key cache label stabil (id game + versi art). Kalau null, pakai judul. */
+    labelKey: String? = null,
 ) {
     val ctx = LocalContext.current
     val density = LocalDensity.current
@@ -302,8 +320,11 @@ fun Cartridge(
 
     val idx = CartFrames.indexFor(spin)
     val frame = remember(idx, ctx) { frameBitmap(idx, ctx) }
-    val label = remember(sys, title, meta, art) {
-        CartLabel.get("$title|${sys.key}|${art?.hashCode()}", sys, art, title, meta, tfDisplay, tfMonoBold, tfMono)
+    val label = remember(sys, title, meta, art, labelKey) {
+        CartLabel.get(
+            labelKey ?: "t:${sys.key}|$title|${if (art != null) 1 else 0}",
+            sys, art, title, meta, tfDisplay, tfMonoBold, tfMono,
+        )
     }
 
     val scale = w / CartFrames.UNIT_W
@@ -337,8 +358,15 @@ fun Cartridge(
         )
     }
     val dstPts = remember { FloatArray(8) }
+    val dstRect = remember { RectF() }
 
     val q = CartFrames.QUADS[idx]
+    // Frame 0° (kartrid tidak diputar / non-fokus) quad-nya PERSEGI PANJANG →
+    // mapping-nya affine. Pakai drawBitmap(src,dstRect) yang di-akselerasi GPU.
+    // Kalau tetap pakai setPolyToPoly (matrix non-affine), Skia jatuh ke jalur
+    // CPU: terukur ~150ms/frame untuk 7 kartrid di GT78-VN.
+    val neutralIdx = remember { CartFrames.indexFor(0f) }
+    val rectQuad = idx == neutralIdx
 
     Box(
         modifier = modifier
@@ -353,12 +381,18 @@ fun Cartridge(
                 val nc = c.nativeCanvas
 
                 // 1. label ke quad (di belakang frame)
-                for (i in 0 until 4) {
-                    dstPts[i * 2] = q[i * 2] * scale
-                    dstPts[i * 2 + 1] = q[i * 2 + 1] * scale
+                if (rectQuad) {
+                    // jalur cepat (GPU): quad persegi panjang = affine
+                    dstRect.set(q[0] * scale, q[1] * scale, q[4] * scale, q[5] * scale)
+                    nc.drawBitmap(label.asAndroidBitmap(), null, dstRect, labelPaint)
+                } else {
+                    for (i in 0 until 4) {
+                        dstPts[i * 2] = q[i * 2] * scale
+                        dstPts[i * 2 + 1] = q[i * 2 + 1] * scale
+                    }
+                    matrix.setPolyToPoly(srcPts, 0, dstPts, 0, 4)
+                    nc.drawBitmap(label.asAndroidBitmap(), matrix, labelPaint)
                 }
-                matrix.setPolyToPoly(srcPts, 0, dstPts, 0, 4)
-                nc.drawBitmap(label.asAndroidBitmap(), matrix, labelPaint)
 
                 // 2. shell plastik — lubang label transparan bikin recess nempel ke art
                 nc.drawBitmap(frame.asAndroidBitmap(), null, RectF(0f, 0f, imgW, imgH), framePaint)

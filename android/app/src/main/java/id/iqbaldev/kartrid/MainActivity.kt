@@ -453,6 +453,7 @@ private fun KartridRoot(
                 artVersion = artVersion,
                 scanning = scanning,
                 artRunning = artRunning,
+                peekArt = { g -> artCache.peek(g)?.asImageBitmap() },
                 scanNote = note,
                 onTab = { switchTab(it) },
                 onIndex = { index = it },
