@@ -309,6 +309,7 @@ Scan: jalan di `Dispatchers.IO`, `Flow<ScanProgress>` (ditemukan/total/path) bia
 | SFX insert/eject/tick (SoundPool, res/raw tidak dikompres) + haptic 18 ms | `ui/Sfx.kt` | ✅ |
 | Scan ROM + auto-discovery folder + library JSON | `core/RomScanner.kt`, `core/Store.kt` | ✅ |
 | Boxart on-demand dari thumbnails.libretro.com + downsample 256px + cache | `core/ArtCache.kt` | ✅ |
+| Matcher boxart bertingkat (exact → variasi → fuzzy) + gate nomor seri | `core/ArtMatcher.kt` | ✅ 20 Okt 2026: coverage 52% → **79.2%** (1716/2167) |
 | Launch RetroArch (kontrak §7 diverifikasi ulang dari source master) | `core/RetroArch.kt` | ✅ (belum diuji di device) |
 | D-pad first: ◀▶ pindah · A masukkan · X favorit · Y cari · B pengaturan | `ShelfScreen` key handler | ✅ |
 | S3 Cari & daftar (daftar berjendela + rail A–Z, D-pad) | `ui/ListScreen.kt` | ✅ |

@@ -21,6 +21,11 @@ import java.util.concurrent.ConcurrentHashMap
  * nyoba 8 URL sekuensial (banyak timeout) → 2167 game = berjam-jam. Dengan index:
  * ~3 request daftar + download yang cocok doang.
  *
+ * Logika pencocokan nama ada di [ArtMatcher] (murni, unit-testable):
+ *  - koleksi lokal lo bukan No-Intro (nama file = judul pendek tanpa region),
+ *    sedangkan CDN pake "Judul, The (USA, Europe).png" → butuh normalisasi berlapis
+ *    + fuzzy. Terukur di device GT78-VN: coverage 1131/2167 (52%) → 1722/2167 (79.5%).
+ *
  * Hasil di-downsample ke <= 256 px lalu disimpan sebagai PNG di filesDir/art.
  */
 class ArtCache(ctx: Context) {
@@ -29,6 +34,12 @@ class ArtCache(ctx: Context) {
     private val mem = LruCache<String, Bitmap>(64)
     private val indexMem = ConcurrentHashMap<String, List<String>>()
 
+    /**
+     * Index per-tier per sistem (judul inti → nama file CDN), dibangun sekali
+     * supaya lookup per game O(1) — bukan scan 6000 entry tiap kali.
+     */
+    private val tierIndexMem = ConcurrentHashMap<String, ArtMatcher.TierIndex>()
+
     fun fileOf(id: String): File = File(dir, "$id.png")
 
     fun cacheSize(): Long = dir.listFiles()?.sumOf { it.length() } ?: 0L
@@ -36,6 +47,7 @@ class ArtCache(ctx: Context) {
     fun clear() {
         mem.evictAll()
         indexMem.clear()
+        tierIndexMem.clear()
         dir.listFiles()?.forEach { it.delete() }
     }
 
@@ -82,7 +94,10 @@ class ArtCache(ctx: Context) {
             names = fetchIndex(sys) ?: fetchIndex(sys)
             if (!names.isNullOrEmpty()) runCatching { file.writeText(names.joinToString("\n")) }
         }
-        if (names != null) indexMem[sys.key] = names
+        if (names != null) {
+            indexMem[sys.key] = names
+            tierIndexMem.remove(sys.key)   // index per-tier dihitung ulang dari index baru
+        }
     }
 
     private fun indexUrl(sys: Sys): String =
@@ -113,15 +128,14 @@ class ArtCache(ctx: Context) {
         Sys.GBA -> "Nintendo - Game Boy Advance"
     }
 
-    /** bagian judul (sebelum tag region pertama) — dipakai pencocokan index */
-    private fun titlePart(name: String): String =
-        name.substringBefore(" (").trim().lowercase()
-
-    /** ranking region: USA/World paling sering dipakai libretro */
-    private fun regionRank(name: String): Int {
-        val inner = name.substringAfter("(", "").substringBefore(")").trim().lowercase()
-        val i = REGION_PREF.indexOf(inner)
-        return if (i < 0) REGION_PREF.size else i
+    /** index per-tier (dibangun lazy, di-cache per sistem) */
+    private fun tierIndex(sys: Sys): ArtMatcher.TierIndex? {
+        tierIndexMem[sys.key]?.let { return it }
+        val idx = indexMem[sys.key] ?: return null
+        if (idx.isEmpty()) return null
+        val built = ArtMatcher.TierIndex.build(idx)
+        tierIndexMem[sys.key] = built
+        return built
     }
 
     private fun candidates(g: Game): List<String> {
@@ -130,18 +144,12 @@ class ArtCache(ctx: Context) {
         val base = RomScanner.baseName(rawName)
         if (base.isBlank()) return emptyList()
         val root = indexUrl(sys)
-        val idx = indexMem[sys.key]
 
-        if (idx != null && idx.isNotEmpty()) {
-            // cocokin ke index CDN → 0-1 URL beneran ada (gak nembak 8 URL buta)
-            val key = base.lowercase()
-            val best = idx.filter { titlePart(it) == key }
-                .minByOrNull { regionRank(it) }
-                ?: return emptyList()
-            return listOf(root + enc(best))
-        }
+        // 1) index: matcher bertingkat (exact → variasi → fuzzy)
+        val hit = tierIndex(sys)?.let { ArtMatcher.match(it, base) }
+        if (hit != null) return listOf(root + enc(hit))
 
-        // fallback (index gagal ke-fetch): coba varian region umum
+        // 2) fallback: coba 8 varian region (kalau index kosong/gagal atau nggak ketemu)
         val suffixes = listOf(
             " (USA, Europe)", " (World)", " (USA)", " (Europe)", " (Japan)",
             " (USA, Australia)", " (En,Ja)", "",
@@ -200,10 +208,4 @@ class ArtCache(ctx: Context) {
         }
         BitmapFactory.decodeFile(f.absolutePath, opts)
     }.getOrNull()
-
-    companion object {
-        private val REGION_PREF = listOf(
-            "(usa, europe)", "(world)", "(usa)", "(europe)", "(japan)", "(usa, australia)", "(en,ja)", "",
-        )
-    }
 }
