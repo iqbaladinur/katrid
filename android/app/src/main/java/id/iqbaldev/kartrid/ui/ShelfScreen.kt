@@ -505,12 +505,12 @@ private fun ShelfRack(
         val s = w / CartFrames.UNIT_W
         val cx = CENTER_X + (if (i >= index) 1f else -1f) * centerOffset(d)
 
-        // cull: jauh di luar layar → nggak perlu dikompos/digambar.
-        // Margin lebar (700px) supaya art + label item berikutnya sudah siap
-        // SEBELUM masuk layar (kalau mepet, kartrid sempat tampil tanpa art
-        // saat skip cepat).
+        // JANGAN cull di sini (jangan `continue`): kalau item di-dispose saat
+        // geser, state `art` hilang → boxart reload dari disk → BLINK.
+        // Cull dilakukan di fase gambar (alpha=0 di graphicsLayer) supaya
+        // komposisi + state tetap hidup.
         val halfW = CartFrames.IMG_W * s / 2f
-        if (cx + halfW < -700f || cx - halfW > 1660f) continue
+        val onScreen = !(cx + halfW < -80f || cx - halfW > 1040f)
 
         val boxLeft = cx - CartFrames.CENTER_X * s
         val boxTop = cy - CartFrames.CENTER_Y * s
@@ -540,6 +540,10 @@ private fun ShelfRack(
                     // kartrid fokus digambar paling akhir = paling atas.
                     .zIndex(if (isFocusedCart) 1f else 0f)
                     .graphicsLayer {
+                        // cull di fase gambar: item di luar layar nggak digambar,
+                        // TAPI komposisi & state art-nya tetap hidup (anti-blink).
+                        alpha = if (onScreen) 1f else 0f
+
                         val sc = if (isFocusedCart) scale.value else 1f
                         scaleX = sc
                         scaleY = sc
