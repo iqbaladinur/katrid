@@ -32,5 +32,11 @@ design/cart3d/seq_meta.json
 # Builds
 *.apk
 
+# Release signing — never commit
+android/keystore.properties
+*.keystore
+*.jks
+dist/
+
 # Scratch scripts
 design/scratch/

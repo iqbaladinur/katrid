@@ -1,9 +1,26 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
+
+// The release workflow passes -PversionName/-PversionCode, derived from the git tag.
+val appVersionName = providers.gradleProperty("versionName").getOrElse("0.1.0")
+val appVersionCode = providers.gradleProperty("versionCode").getOrElse("1").toIntOrNull() ?: 1
+
+// Release signing, optional: env vars win (CI), then android/keystore.properties (local).
+// Without either, :app:assembleRelease stays unsigned and CI falls back to a debug APK.
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
+fun signingValue(key: String): String? = System.getenv(key) ?: keystoreProps.getProperty(key)
+
+val keystorePath = signingValue("KEYSTORE_FILE")
 
 android {
     namespace = "id.iqbaldev.kartrid"
@@ -13,17 +30,30 @@ android {
         applicationId = "id.iqbaldev.kartrid"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
     }
 
     androidResources {
         noCompress += listOf("ogg")
     }
 
+    signingConfigs {
+        if (!keystorePath.isNullOrBlank()) {
+            create("release") {
+                storeFile = rootProject.file(keystorePath)
+                storePassword = signingValue("KEYSTORE_PASSWORD")
+                keyAlias = signingValue("KEY_ALIAS")
+                keyPassword = signingValue("KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            // Signed only when the keystore above was configured.
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
 

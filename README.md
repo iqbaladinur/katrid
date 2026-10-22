@@ -1,5 +1,8 @@
 # Kartrid
 
+[![CI](https://github.com/iqbaladinur/katrid/actions/workflows/ci.yml/badge.svg)](https://github.com/iqbaladinur/katrid/actions/workflows/ci.yml)
+[![Release](https://github.com/iqbaladinur/katrid/actions/workflows/release.yml/badge.svg)](https://github.com/iqbaladinur/katrid/releases/latest)
+
 **A shelf of 3D cartridges for your Game Boy library — not another grid of covers.**
 
 Kartrid scans your GB / GBC / GBA ROM folders, renders every game as a photoreal
@@ -80,6 +83,21 @@ Or use the helper, which builds, installs and launches on the connected device:
 ./deploy.sh connect 192.168.1.7:5555   # wireless debugging first
 ```
 
+## Releases
+
+Every push to `master` builds the debug APK and runs the test suite in CI. Pushing a
+`vMAJOR.MINOR.PATCH` tag publishes a signed APK to
+[Releases](https://github.com/iqbaladinur/katrid/releases):
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+`versionName` and `versionCode` come from the tag; the APK is attached to the release with
+generated notes. Signing keys are optional — without them the release workflow publishes a
+debug-signed APK instead. Setup, secrets and the local keystore flow are in
+[docs/RELEASING.md](docs/RELEASING.md).
+
 ## Controls
 
 | Input | Action |
@@ -140,6 +158,7 @@ cd android && ./gradlew :app:testDebugUnitTest
 ## Project layout
 
 ```
+.github/workflows/     CI (tests + debug APK) and tag-driven release automation
 android/                 Android app (Kotlin, Jetpack Compose)
   app/src/main/java/id/iqbaldev/kartrid/
     core/                ROM scanning, settings store, RetroArch intent, art cache
