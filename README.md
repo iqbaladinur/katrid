@@ -60,10 +60,13 @@ canvas scales proportionally to any screen.
 git clone git@github.com:iqbaladinur/katrid.git
 cd katrid
 
-# JDK 17 + Android SDK 35 must be reachable
-export JAVA_HOME="$HOME/android-dev/jdk-17"
-export ANDROID_HOME="$HOME/android-dev/sdk"
+# JDK 17 + Android SDK 35 must be reachable. The toolchain this project was
+# built with lives in ~/devices/android-dev.
+export JAVA_HOME="$HOME/devices/android-dev/jdk-17"
+export ANDROID_HOME="$HOME/devices/android-dev/sdk"
 export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
+# On the original checkout only: `source android/env.sh` does the same
+# (that file is gitignored, so a fresh clone will not have it).
 
 cd android
 ./gradlew :app:assembleDebug
