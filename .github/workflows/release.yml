@@ -109,17 +109,19 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           if [ "$SIGNED" = "true" ]; then
-            cp android/app/build/outputs/apk/release/app-release.apk "dist/kartrid-${VERSION_NAME}.apk"
+            APK="kartrid-${VERSION_NAME}.apk"
+            cp android/app/build/outputs/apk/release/app-release.apk "dist/$APK"
             SIGN_LINE="APK is signed with the project release key."
           else
-            cp android/app/build/outputs/apk/debug/app-debug.apk "dist/kartrid-${VERSION_NAME}-debug.apk"
+            APK="kartrid-${VERSION_NAME}-debug.apk"
+            cp android/app/build/outputs/apk/debug/app-debug.apk "dist/$APK"
             SIGN_LINE="**No release signing key is configured**, so this APK is debug-signed. Uninstall any older Kartrid build before installing it."
           fi
           cat > "$RUNNER_TEMP/notes.md" <<EOF
           ## Install
 
           \`\`\`bash
-          adb install -r kartrid-${VERSION_NAME}.apk
+          adb install -r ${APK}
           \`\`\`
 
           Kartrid is a frontend, not an emulator: you still need RetroArch plus the Gambatte / mGBA cores.
