@@ -205,4 +205,5 @@ it in Settings if you prefer.
 
 ## License
 
-[MIT](LICENSE) © 2026 Iqbal Adi Nur
+[MIT](LICENSE) © 2026 Iqbal Adi Nur.
+Third-party components and trademarks: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
