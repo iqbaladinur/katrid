@@ -84,7 +84,7 @@ class PreviewTest {
 
     /** the shelf itself — [bg]/[bgDim] drive the custom background under test */
     @Composable
-    private fun shelf(bg: ImageBitmap? = null, bgDim: Int = 55) {
+    private fun shelf(bg: ImageBitmap? = null, bgDim: Int = 55, launchMs: Float? = null) {
         MockCanvas {
             ShelfScreen(
                 tab = Tab.GBA,
@@ -119,6 +119,7 @@ class PreviewTest {
                 },
                 bg = bg,
                 bgDim = bgDim,
+                previewLaunchMs = launchMs,
             )
         }
     }
@@ -205,26 +206,16 @@ class PreviewTest {
         }
     }
 
-    /** spinner loading di tengah area label */
+    /**
+     * Insert sequence keyframes, same timeline the app runs on pressing A/Start:
+     * 0 rest, 70 anticipation, 190 wind-up peak, 260 sink, 330 impact (sparks), 380 flash, 450/560 tail.
+     * Review these before deploying — the timeline lives in LaunchAnim.
+     */
     @Test
-    fun cartLoadingPreview() {
-        captureRoboImage(out("13-cart-loading.png")) {
-            MockCanvas {
-                Box(Modifier.fillMaxSize().background(Color(0xFF16121F)), contentAlignment = Alignment.Center) {
-                    androidx.compose.runtime.CompositionLocalProvider(
-                        androidx.compose.ui.platform.LocalInspectionMode provides true,
-                    ) {
-                        Cartridge(
-                            sys = Sys.GBA,
-                            art = art("gba_Pokemon_-_Emerald_Version__USA__Europe_.png"),
-                            title = "Pokémon Emerald Version",
-                            meta = "USA · 12.6 MB · main 17×",
-                            w = 305f,
-                            focused = true,
-                            loading = true,
-                        )
-                    }
-                }
+    fun shelfLaunchPreview() {
+        for (ms in listOf(0f, 70f, 190f, 260f, 330f, 380f, 450f, 560f)) {
+            captureRoboImage(out("30-launch-${ms.toInt().toString().padStart(3, '0')}.png")) {
+                shelf(launchMs = ms)
             }
         }
     }

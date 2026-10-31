@@ -4,6 +4,7 @@ import android.view.KeyEvent as AKey
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -151,6 +152,11 @@ fun ShelfScreen(
     bg: ImageBitmap? = null,
     /** dim overlay over [bg], percent 0-90 */
     bgDim: Int = 55,
+    /**
+     * Fixed launch-timeline position in ms (preview/test only). Null = live animation.
+     * See [LaunchAnim] for the keyframe times (0, 70, 190, 330, 380, 780).
+     */
+    previewLaunchMs: Float? = null,
 ) {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -189,11 +195,13 @@ fun ShelfScreen(
         }
     }
 
-    val yOff = remember { Animatable(0f) }
-    val scale = remember { Animatable(1f) }
     val spin = remember { Animatable(REST_SPIN) }   // derajat, pivot = pusat kartrid
     val tilt = remember { Animatable(0f) }
-    var loading by remember { mutableStateOf<Game?>(null) }
+
+    // Launch timeline (single linear clock, 0..LaunchAnim.TAIL ms). Every launch visual
+    // (twist, sink, fade) is a pure function of this clock — see LaunchAnim.
+    val launchClock = remember { Animatable(0f) }
+    var launching by remember { mutableStateOf<Game?>(null) }
 
     fun move(delta: Int) {
         if (games.isEmpty()) return
@@ -239,26 +247,44 @@ fun ShelfScreen(
         }
     }
 
-    suspend fun play(g: Game) = coroutineScope {
-        launch { yOff.animateTo(34f, tween(180)) }
-        launch { scale.animateTo(0.97f, tween(180)) }
-        sfx.insert()
-        sfx.haptic(18)
-        delay(190)
-
-        loading = g
-        delay(400)
-        onLaunch(g)
-        delay(120)
-
-        loading = null
-        yOff.snapTo(0f)
-        scale.snapTo(1f)
+    /**
+     * Insert sequence: wind-up twist -> sink into the shelf -> spark burst.
+     *
+     * The launch intent fires at [LaunchAnim.FLASH] (380 ms), on the flash peak, so the
+     * activity switch happens under the flash instead of on a spinner. Sparks keep
+     * animating in the outgoing window until [LaunchAnim.TAIL], then state resets.
+     */
+    suspend fun play(g: Game) {
+        if (launching != null) return
+        launching = g
+        launchClock.snapTo(0f)
+        coroutineScope {
+            launch {
+                launchClock.animateTo(
+                    LaunchAnim.TAIL,
+                    tween(LaunchAnim.TAIL.toInt(), easing = LinearEasing),
+                )
+            }
+            launch {
+                // thunk lands on impact (accounting for SoundPool latency)
+                delay((LaunchAnim.IMPACT - 25f).toLong())
+                sfx.insert()
+                sfx.haptic(16)
+            }
+            delay(LaunchAnim.FLASH.toLong())
+            onLaunch(g)
+            delay((LaunchAnim.TAIL - LaunchAnim.FLASH).toLong())
+        }
+        launchClock.snapTo(0f)
+        launching = null
+        // return the cartridge to its resting angle: start from the insert angle, then spring
+        spin.snapTo(LaunchAnim.spin(LaunchAnim.IMPACT))
+        settle()
     }
 
     fun play() {
         val g = current ?: return
-        if (loading != null) return
+        if (launching != null) return
         scope.launch { play(g) }
     }
 
@@ -272,6 +298,10 @@ fun ShelfScreen(
             .focusable()
             .onPreviewKeyEvent { ev ->
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                // swallow input while the insert sequence runs (380 ms): launching from a
+                // half-finished animation, or opening Settings mid-flight, leaves the shelf
+                // in an inconsistent state.
+                if (launching != null) return@onPreviewKeyEvent true
                 if (cartMenu) {
                     when (ev.nativeKeyEvent.keyCode) {
                         AKey.KEYCODE_DPAD_UP -> { cartMenuSel = (cartMenuSel - 1).coerceAtLeast(0); sfx.tick(); true }
@@ -362,17 +392,23 @@ fun ShelfScreen(
                 from = from,
                 to = to,
                 fAnim = { pos.value },
-                yOff = yOff,
-                scale = scale,
+                launchMs = { previewLaunchMs ?: launchClock.value },
+                launching = launching != null,
                 spin = spin,
                 tilt = tilt,
-                loading = loading,
                 artOf = artOf,
                 artVersion = artVersion,
                 preloadArt = preloadArt,
                 peekArt = peekArt,
                 sfx = sfx,
                 settle = suspend { settle() },
+            )
+
+            // sparks + slot glow + launch flash, drawn above the rack but below the chrome
+            LaunchFxOverlay(
+                clock = { previewLaunchMs ?: launchClock.value },
+                originX = CENTER_X,
+                originY = CART_BOTTOM - 2f,
             )
         }
 
@@ -555,11 +591,10 @@ private fun ShelfRack(
     from: Int,
     to: Int,
     fAnim: () -> Float,
-    yOff: Animatable<Float, AnimationVector1D>,
-    scale: Animatable<Float, AnimationVector1D>,
+    launchMs: () -> Float,
+    launching: Boolean,
     spin: Animatable<Float, AnimationVector1D>,
     tilt: Animatable<Float, AnimationVector1D>,
-    loading: Game?,
     artOf: suspend (Game) -> ImageBitmap?,
     artVersion: Int,
     preloadArt: ((Game) -> ImageBitmap?)?,
@@ -595,6 +630,15 @@ private fun ShelfRack(
         if (metaCache.size > 256) metaCache.clear()
         val meta = metaCache.getOrPut(g.id.ifEmpty { g.path }) { metaOf(g) }
 
+        // Launch timeline (focused cartridge only). Idle values keep the old behaviour.
+        val lms = if (isFocusedCart) launchMs() else 0f
+        val flying = lms > 0f
+        val cartSpin = if (flying) LaunchAnim.spin(lms) else if (isFocusedCart) spin.value else 0f
+        val cartTilt = if (flying) LaunchAnim.tilt(lms) else if (isFocusedCart) tilt.value else 0f
+        val cartScale = if (flying) LaunchAnim.scale(lms) else 1f
+        val cartLift = if (flying) LaunchAnim.lift(lms) else 0f
+        val cartAlpha = if (flying) LaunchAnim.cartAlpha(lms) else 1f
+
         key(g.id) {
             var art by remember(g.id) {
                 mutableStateOf(preloadArt?.invoke(g) ?: peekArt?.invoke(g))
@@ -612,29 +656,28 @@ private fun ShelfRack(
 
             Box(
                 Modifier
-                    .offset(
-                        x = boxLeft.dp,
-                        y = (boxTop + if (isFocusedCart) yOff.value else 0f).dp,
-                    )
+                    .offset(x = boxLeft.dp, y = boxTop.dp)
                     // pengganti urutan "sortedByDescending d" versi lama:
                     // kartrid fokus digambar paling akhir = paling atas.
                     .zIndex(if (isFocusedCart) 1f else 0f)
                     .graphicsLayer {
                         // cull di fase gambar: item di luar layar nggak digambar,
                         // TAPI komposisi & state art-nya tetap hidup (anti-blink).
-                        alpha = if (onScreen) 1f else 0f
+                        alpha = if (onScreen) cartAlpha else 0f
 
-                        val sc = if (isFocusedCart) scale.value else 1f
-                        scaleX = sc
-                        scaleY = sc
+                        scaleX = cartScale
+                        scaleY = cartScale
+                        // launch: sink into the shelf without re-laying-out the rack
+                        translationY = cartLift
                         rotationZ = if (isFocusedCart) 0f else {
                             val side = if (i < index) -1f else 1f
                             side * (1.4f + 0.7f * d.coerceAtMost(1f)).coerceAtMost(2.6f)
                         }
-                        transformOrigin = TransformOrigin(0.5f, 0.5f)
+                        // bottom anchor: scaling shrinks the cartridge toward the shelf line
+                        transformOrigin = TransformOrigin(0.5f, if (isFocusedCart) 1f else 0.5f)
                     }
                     .then(
-                        if (isFocusedCart) {
+                        if (isFocusedCart && !launching) {
                             Modifier.pointerInput(g.id) {
                                 detectDragGestures(
                                     onDragStart = { sfx.tick() },
@@ -665,9 +708,8 @@ private fun ShelfRack(
                     meta = meta,
                     w = w,
                     focused = d < 0.5f,
-                    spin = if (isFocusedCart) spin.value else 0f,
-                    tilt = if (isFocusedCart) tilt.value else 0f,
-                    loading = isFocusedCart && loading != null,
+                    spin = cartSpin,
+                    tilt = cartTilt,
                     labelKey = CartLabel.labelKey(g.id, art, artVersion),
                 )
             }

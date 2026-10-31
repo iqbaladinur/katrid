@@ -11,33 +11,21 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.util.LruCache
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
 import androidx.core.content.res.ResourcesCompat
 import id.iqbaldev.kartrid.R
@@ -306,7 +294,6 @@ fun Cartridge(
     focused: Boolean,
     spin: Float = 0f,
     tilt: Float = 0f,
-    loading: Boolean = false,
     modifier: Modifier = Modifier,
     /** key cache label stabil (id game + versi art). Kalau null, pakai judul. */
     labelKey: String? = null,
@@ -396,38 +383,6 @@ fun Cartridge(
 
                 // 2. shell plastik — lubang label transparan bikin recess nempel ke art
                 nc.drawBitmap(frame.asAndroidBitmap(), null, RectF(0f, 0f, imgW, imgH), framePaint)
-            }
-        }
-
-        if (loading) {
-            val cx = (0 until 4).sumOf { (q[it * 2] * scale).toDouble() }.toFloat() / 4f
-            val cy = (0 until 4).sumOf { (q[it * 2 + 1] * scale).toDouble() }.toFloat() / 4f
-            val inspection = LocalInspectionMode.current
-            val angle = if (inspection) {
-                90f
-            } else {
-                val tr = rememberInfiniteTransition(label = "cart-spin")
-                val a by tr.animateFloat(
-                    initialValue = 0f, targetValue = 360f,
-                    animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart),
-                    label = "cart-angle",
-                )
-                a
-            }
-            val r = w * 0.13f
-            val stroke = (r * 0.18f).coerceAtLeast(2f)
-            Canvas(Modifier.fillMaxSize()) {
-                drawCircle(T.bg.copy(alpha = 0.55f), radius = w * 0.20f, center = Offset(cx, cy))
-                drawArc(
-                    color = T.lime.copy(alpha = 0.22f), startAngle = 0f, sweepAngle = 360f,
-                    useCenter = false, topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
-                    style = Stroke(width = stroke, cap = StrokeCap.Round),
-                )
-                drawArc(
-                    color = T.lime, startAngle = angle, sweepAngle = 100f,
-                    useCenter = false, topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
-                    style = Stroke(width = stroke, cap = StrokeCap.Round),
-                )
             }
         }
     }
