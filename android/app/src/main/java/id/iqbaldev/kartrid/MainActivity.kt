@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -89,6 +90,27 @@ import kotlinx.coroutines.withTimeout
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import java.io.File
+
+/**
+ * Decode a wallpaper file for the shelf.
+ *
+ * Camera shots are 12 MP+; decoding them at full size would waste memory and make
+ * every frame expensive. Read the bounds first, then subsample down to <=1920px.
+ * Returns null for a missing/corrupt file so the shelf falls back to the dark canvas.
+ */
+private fun loadBackground(path: String?): ImageBitmap? {
+    if (path == null) return null
+    val f = File(path)
+    if (!f.isFile) return null
+    val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    android.graphics.BitmapFactory.decodeFile(path, bounds)
+    var sample = 1
+    while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 1920) sample *= 2
+    val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+    return runCatching {
+        android.graphics.BitmapFactory.decodeFile(path, opts)?.asImageBitmap()
+    }.getOrNull()
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -280,6 +302,8 @@ private fun KartridRoot(
     var pickSys by remember { mutableStateOf<Sys?>(null) }
     var cacheBytes by remember { mutableStateOf(0L) }
     var customArtTarget by remember { mutableStateOf<Game?>(null) }
+    var bgVersion by remember { mutableIntStateOf(0) }
+    var bgBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
 
     /** tulis artState terbaru ke state + disk (dari Main thread) */
     fun flushArt(r: MutableMap<String, String>) {
@@ -379,6 +403,55 @@ private fun KartridRoot(
         val g = customArtTarget
         customArtTarget = null
         if (uri != null && g != null) importCustomArt(g, uri)
+    }
+
+    // ---- custom shelf background ----
+    // decode off the main thread; re-runs whenever the file or the version changes
+    LaunchedEffect(settings.bgFile, bgVersion) {
+        bgBitmap = withContext(Dispatchers.IO) { loadBackground(settings.bgFile) }
+    }
+
+    /** folder that holds the user's wallpaper (one file at a time) */
+    fun bgDir(): File =
+        File(ctx.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "kartrid_bg").apply { mkdirs() }
+
+    fun importCustomBg(uri: Uri) {
+        val ext = when (ctx.contentResolver.getType(uri)) {
+            "image/png" -> "png"
+            "image/jpeg", "image/jpg" -> "jpg"
+            "image/webp" -> "webp"
+            else -> "png"
+        }
+        val dir = bgDir()
+        // one wallpaper only — a stale file with another extension would linger otherwise
+        dir.listFiles()?.forEach { it.delete() }
+        val f = File(dir, "bg.$ext")
+        val ok = runCatching {
+            val n = ctx.contentResolver.openInputStream(uri)?.use { ins ->
+                f.outputStream().use { outs -> ins.copyTo(outs) }
+            }
+            (n ?: 0L) > 0
+        }.getOrDefault(false)
+        if (!ok) {
+            toast = "failed to import image"
+            return
+        }
+        settings = settings.copy(bgFile = f.absolutePath)
+        store.saveSettings(settings)
+        bgVersion++
+        toast = "custom background set"
+    }
+
+    fun clearCustomBg() {
+        runCatching { bgDir().listFiles()?.forEach { it.delete() } }
+        settings = settings.copy(bgFile = null)
+        store.saveSettings(settings)
+        bgVersion++
+        toast = "background back to default"
+    }
+
+    val bgPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) importCustomBg(uri)
     }
 
     /** paksa re-scan untuk sys tertentu (clear stamp), atau full re-scan kalau sys=null */
@@ -497,6 +570,8 @@ private fun KartridRoot(
                 scanning = scanning,
                 artRunning = artRunning,
                 peekArt = { g -> artCache.peek(g)?.asImageBitmap() },
+                bg = bgBitmap,
+                bgDim = settings.bgDim,
                 scanNote = note,
                 onTab = { switchTab(it) },
                 onIndex = { index = it },
@@ -561,6 +636,9 @@ private fun KartridRoot(
                     artPicker.launch("image/*")
                 },
                 onClearArt = { clearCustomArt(it) },
+                bgActive = settings.bgFile != null,
+                onPickBg = { bgPicker.launch("image/*") },
+                onClearBg = { clearCustomBg() },
                 onClose = {
                     screen = 0
                     scope.launch {

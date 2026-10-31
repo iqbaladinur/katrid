@@ -103,6 +103,9 @@ fun SettingsScreen(
     games: List<Game>,
     onSetArt: (Game) -> Unit,
     onClearArt: (Game) -> Unit,
+    bgActive: Boolean = false,
+    onPickBg: () -> Unit = {},
+    onClearBg: () -> Unit = {},
     onClose: () -> Unit,
     sfx: Sfx,
     initialGroup: Int = 0,
@@ -223,6 +226,33 @@ fun SettingsScreen(
                     options = listOf("5", "10", "20", "30", "50"),
                     current = settings.shelfSkip.toString(),
                     pick = { onUpdate(settings.copy(shelfSkip = it.toIntOrNull() ?: 20)) },
+                ),
+            )
+            add(
+                Row.Action(
+                    name = "Background image",
+                    sub = if (bgActive) "custom wallpaper in use" else "default dark canvas — press A to pick a photo",
+                    label = if (bgActive) "CHANGE" else "PICK",
+                    run = onPickBg,
+                ),
+            )
+            if (bgActive) {
+                add(
+                    Row.Action(
+                        name = "Remove background",
+                        sub = "back to the default dark canvas",
+                        label = "CLEAR",
+                        run = onClearBg,
+                    ),
+                )
+            }
+            add(
+                Row.Choices(
+                    name = "Background dim",
+                    sub = "overlay strength so the shelf stays readable",
+                    options = listOf("35", "45", "55", "65", "75"),
+                    current = settings.bgDim.toString(),
+                    pick = { onUpdate(settings.copy(bgDim = it.toIntOrNull() ?: 55)) },
                 ),
             )
             add(Row.Info(name = "Orientation", sub = "locked landscape (3:2)", value = "960×640"))

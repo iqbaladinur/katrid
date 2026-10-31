@@ -58,6 +58,13 @@ class PreviewTest {
     private fun art(name: String): ImageBitmap? =
         runCatching { BitmapFactory.decodeFile("$artDir/$name")?.asImageBitmap() }.getOrNull()
 
+    /** synthetic wallpaper bundled in src/test/resources — no external art needed */
+    private fun bgSample(): ImageBitmap? = runCatching {
+        javaClass.classLoader?.getResourceAsStream("bg-sample.png")?.use { ins ->
+            BitmapFactory.decodeStream(ins)?.asImageBitmap()
+        }
+    }.getOrNull()
+
     private fun games(): List<Game> {
         val base = Game(id = "", system = Sys.GBA.key, path = "", title = "", sizeBytes = 12_582_912L)
         fun g(s: Sys, title: String, region: String? = "USA"): Game = base.copy(
@@ -75,44 +82,63 @@ class PreviewTest {
         )
     }
 
+    /** the shelf itself — [bg]/[bgDim] drive the custom background under test */
+    @Composable
+    private fun shelf(bg: ImageBitmap? = null, bgDim: Int = 55) {
+        MockCanvas {
+            ShelfScreen(
+                tab = Tab.GBA,
+                counts = mapOf("FAV" to 1, "GB" to 1, "GBC" to 1, "GBA" to 5),
+                games = games(),
+                index = 0,
+                focusRequester = androidx.compose.ui.focus.FocusRequester(),
+                artOf = { g ->
+                    when (g.title) {
+                        "Pokémon Emerald Version" -> art("gba_Pokemon_-_Emerald_Version__USA__Europe_.png")
+                        "Dragon Quest Monsters - Caravan Heart" -> art("gba_Golden_Sun__USA__Europe_.png")
+                        else -> null
+                    }
+                },
+                artVersion = 0,
+                scanning = false,
+                artRunning = false,
+                scanNote = "",
+                onTab = {}, onIndex = {}, onLaunch = {}, onFav = {}, onSettings = {}, onSearch = {},
+                onSetArt = {}, onClearArt = {},
+                sfx = Sfx(ctx),
+                preloadArt = { g ->
+                    when (g.title) {
+                        "Pokémon Emerald Version" -> art("gba_Pokemon_-_Emerald_Version__USA__Europe_.png")
+                        "Dragon Quest Monsters - Caravan Heart" -> art("gba_Golden_Sun__USA__Europe_.png")
+                        "Castlevania - Aria of Sorrow" -> art("gba_Castlevania_-_Aria_of_Sorrow__USA_.png")
+                        "Metroid Fusion" -> art("gba_Metroid_Fusion__USA_.png")
+                        "Wario Land 3" -> art("gbc_Wario_Land_3__World___En_Ja_.png")
+                        "Super Mario Land" -> art("gb_Super_Mario_Land__World_.png")
+                        else -> null
+                    }
+                },
+                bg = bg,
+                bgDim = bgDim,
+            )
+        }
+    }
+
     @Test
     fun shelfPreview() {
-        captureRoboImage(out("01-shelf.png")) {
-            MockCanvas {
-                ShelfScreen(
-                    tab = Tab.GBA,
-                    counts = mapOf("FAV" to 1, "GB" to 1, "GBC" to 1, "GBA" to 5),
-                    games = games(),
-                    index = 0,
-                    focusRequester = androidx.compose.ui.focus.FocusRequester(),
-                    artOf = { g ->
-                        when (g.title) {
-                            "Pokémon Emerald Version" -> art("gba_Pokemon_-_Emerald_Version__USA__Europe_.png")
-                            "Dragon Quest Monsters - Caravan Heart" -> art("gba_Golden_Sun__USA__Europe_.png")
-                            else -> null
-                        }
-                    },
-                    artVersion = 0,
-                    scanning = false,
-                    artRunning = false,
-                    scanNote = "",
-                    onTab = {}, onIndex = {}, onLaunch = {}, onFav = {}, onSettings = {}, onSearch = {},
-                    onSetArt = {}, onClearArt = {},
-                    sfx = Sfx(ctx),
-                    preloadArt = { g ->
-                        when (g.title) {
-                            "Pokémon Emerald Version" -> art("gba_Pokemon_-_Emerald_Version__USA__Europe_.png")
-                            "Dragon Quest Monsters - Caravan Heart" -> art("gba_Golden_Sun__USA__Europe_.png")
-                            "Castlevania - Aria of Sorrow" -> art("gba_Castlevania_-_Aria_of_Sorrow__USA_.png")
-                            "Metroid Fusion" -> art("gba_Metroid_Fusion__USA_.png")
-                            "Wario Land 3" -> art("gbc_Wario_Land_3__World___En_Ja_.png")
-                            "Super Mario Land" -> art("gb_Super_Mario_Land__World_.png")
-                            else -> null
-                        }
-                    },
-                )
-            }
-        }
+        captureRoboImage(out("01-shelf.png")) { shelf() }
+    }
+
+    /** custom wallpaper at the default dim (55%) — the readability baseline */
+    @Test
+    fun shelfCustomBgPreview() {
+        captureRoboImage(out("20-shelf-bg-dim55.png")) { shelf(bg = bgSample(), bgDim = 55) }
+    }
+
+    /** dim comparison: lighter (35%) vs heavier (75%) overlay */
+    @Test
+    fun shelfCustomBgDimPreview() {
+        captureRoboImage(out("21-shelf-bg-dim35.png")) { shelf(bg = bgSample(), bgDim = 35) }
+        captureRoboImage(out("22-shelf-bg-dim75.png")) { shelf(bg = bgSample(), bgDim = 75) }
     }
 
     /** kartrid 3D: sudut 0° (frame tengah) — bukti label kepasang pas di recess */
@@ -287,6 +313,14 @@ class PreviewTest {
         }
     }
 
+    /** settings › Display — background picker + dim rows (custom wallpaper active) */
+    @Test
+    fun settingsDisplayBgPreview() {
+        captureRoboImage(out("23-settings-display-bg.png")) {
+            MockCanvas { settingsBlock(initialGroup = 2, bgActive = true) }
+        }
+    }
+
     @Test
     fun permissionPreview() {
         captureRoboImage(out("07-permission.png")) {
@@ -297,7 +331,7 @@ class PreviewTest {
     }
 
     @Composable
-    private fun settingsBlock(initialGroup: Int = 0, initialPick: String? = null) {
+    private fun settingsBlock(initialGroup: Int = 0, initialPick: String? = null, bgActive: Boolean = false) {
         SettingsScreen(
             settings = Settings(
                 folders = mapOf(
@@ -331,6 +365,7 @@ class PreviewTest {
                                 sfx = Sfx(ctx),
                                 initialGroup = initialGroup,
                                 initialPick = initialPick,
+                                bgActive = bgActive,
         )
     }
 }

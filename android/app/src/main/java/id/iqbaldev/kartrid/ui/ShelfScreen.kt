@@ -8,6 +8,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -46,6 +47,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.TransformOrigin
@@ -55,6 +57,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -144,6 +147,10 @@ fun ShelfScreen(
     preloadArt: ((Game) -> ImageBitmap?)? = null,
     /** art dari MEMORI saja (tanpa IO) — biar label nggak dibangun 2x */
     peekArt: ((Game) -> ImageBitmap?)? = null,
+    /** custom wallpaper from settings (null = built-in dark canvas) */
+    bg: ImageBitmap? = null,
+    /** dim overlay over [bg], percent 0-90 */
+    bgDim: Int = 55,
 ) {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
@@ -308,6 +315,32 @@ fun ShelfScreen(
                 }
             },
     ) {
+
+        // ---- custom background (settings > Display) ----
+        // Full-bleed layer behind everything: Crop so the image covers the 960x640
+        // canvas, then dim + top/bottom scrim so the title and hint bar stay readable.
+        // No image = the plain dark canvas painted by MockCanvas (previous behaviour).
+        val bgImg = bg
+        if (bgImg != null) {
+            Image(
+                bitmap = bgImg,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            val a = bgDim.coerceIn(0, 90) / 100f
+            Box(Modifier.fillMaxSize().background(T.bg.copy(alpha = a)))
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        0f to T.bg.copy(alpha = 0.86f),
+                        0.26f to T.bg.copy(alpha = a * 0.45f),
+                        0.74f to T.bg.copy(alpha = a * 0.45f),
+                        1f to T.bg.copy(alpha = 0.9f),
+                    )
+                )
+            )
+        }
 
         // ---- rak ----
         //

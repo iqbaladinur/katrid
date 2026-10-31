@@ -119,6 +119,10 @@ data class Settings(
     val lastIndex: Map<String, Int> = emptyMap(),
     /** last opened tab (Tab.key) — restored on next launch */
     val lastTab: String? = null,
+    /** custom shelf wallpaper (absolute path); null = built-in dark canvas */
+    val bgFile: String? = null,
+    /** dim overlay over the wallpaper, percent (0-90) so the shelf stays readable */
+    val bgDim: Int = 55,
     val animEnabled: Boolean = true,
     /** berapa game yang dilompati tiap tekan UP/DOWN di rak (default 20) */
     val shelfSkip: Int = 20,
