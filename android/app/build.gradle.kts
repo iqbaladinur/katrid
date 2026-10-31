@@ -8,8 +8,8 @@ plugins {
 }
 
 // The release workflow passes -PversionName/-PversionCode, derived from the git tag.
-val appVersionName = providers.gradleProperty("versionName").getOrElse("0.1.0")
-val appVersionCode = providers.gradleProperty("versionCode").getOrElse("1").toIntOrNull() ?: 1
+val appVersionName = providers.gradleProperty("versionName").getOrElse("0.2.0")
+val appVersionCode = providers.gradleProperty("versionCode").getOrElse("200").toIntOrNull() ?: 200
 
 // Release signing, optional: env vars win (CI), then android/keystore.properties (local).
 // Without either, :app:assembleRelease stays unsigned and CI falls back to a debug APK.
@@ -68,6 +68,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {

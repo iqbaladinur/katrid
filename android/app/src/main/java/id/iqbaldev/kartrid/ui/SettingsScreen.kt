@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.iqbaldev.kartrid.BuildConfig
 import id.iqbaldev.kartrid.core.Game
 import id.iqbaldev.kartrid.core.RetroArch
 import id.iqbaldev.kartrid.core.Settings
@@ -273,7 +274,7 @@ fun SettingsScreen(
             add(Row.Action(name = "Remove custom boxart", sub = "back to auto-download for a game", label = "CLEAR", run = { artClear = true; artSel = 0 }))
         }
         else -> buildList {
-            add(Row.Info(name = "Kartrid", sub = "GB/GBC/GBA frontend for RetroArch", value = "v0.1.0"))
+            add(Row.Info(name = "Kartrid", sub = "GB/GBC/GBA frontend for RetroArch", value = "v${BuildConfig.VERSION_NAME}"))
             add(Row.Info(name = "Total games", sub = "all systems", value = counts.values.sum().toString()))
             add(Row.Info(name = "RetroArch", sub = "detected package", value = retroPkg ?: "—"))
             add(Row.Info(name = "Installed cores", sub = cores.joinToString(", ").ifBlank { "—" }, value = cores.size.toString()))
