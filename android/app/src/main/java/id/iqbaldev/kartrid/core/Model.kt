@@ -117,6 +117,8 @@ data class Settings(
     val artOverride: Map<String, String> = emptyMap(),
     val onboarded: Boolean = false,
     val lastIndex: Map<String, Int> = emptyMap(),
+    /** last opened tab (Tab.key) — restored on next launch */
+    val lastTab: String? = null,
     val animEnabled: Boolean = true,
     /** berapa game yang dilompati tiap tekan UP/DOWN di rak (default 20) */
     val shelfSkip: Int = 20,

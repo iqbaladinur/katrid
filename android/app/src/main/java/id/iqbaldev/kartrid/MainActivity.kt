@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,6 +96,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var artCache: ArtCache
     private lateinit var sfx: Sfx
     private var justLaunched = false
+/** game currently being played + its start time (for plays/totalMs stats) */
+private var playingId: String? = null
+private var playStartMs = 0L
     private var retroWatcher: Job? = null
     private var detectedCores = listOf<String>()
 
@@ -133,6 +137,8 @@ class MainActivity : ComponentActivity() {
             retroWatcher?.cancel()
             retroWatcher = null
             sfx.eject()
+            // back from RetroArch → record the session (plays +1, totalMs, lastPlayedAt)
+            recordPlay()
         }
     }
 
@@ -183,6 +189,8 @@ class MainActivity : ComponentActivity() {
             force60 = store.settings.force60,
         )
         return runCatching {
+            playingId = g.id
+            playStartMs = System.currentTimeMillis()
             startActivity(i)
             justLaunched = true
             watchRetroArchExit(pkg)
@@ -205,6 +213,7 @@ class MainActivity : ComponentActivity() {
             while (isProcessAlive(pkg)) {
                 delay(1000)
             }
+            recordPlay()
             justLaunched = false
             sfx.eject()
             runCatching {
@@ -217,6 +226,18 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    /** bump plays, totalMs and lastPlayedAt for the game that just ended */
+    private fun recordPlay() {
+        val id = playingId ?: return
+        playingId = null
+        val now = System.currentTimeMillis()
+        val dur = (now - playStartMs).coerceAtLeast(0L)
+        val updated = store.library.games.map {
+            if (it.id == id) it.copy(plays = it.plays + 1, totalMs = it.totalMs + dur, lastPlayedAt = now) else it
+        }
+        store.saveLibrary(Library(updated, store.library.scannedAt, store.library.folderStamp))
     }
 
     private fun isProcessAlive(pkg: String): Boolean {
@@ -238,11 +259,14 @@ private fun KartridRoot(
 ) {
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     var settings by remember { mutableStateOf(store.settings) }
     var games by remember { mutableStateOf(store.library.games) }
-    var tab by remember { mutableStateOf(Tab.GBA) }
-    var index by remember { mutableStateOf(0) }
+    var tab by remember {
+        mutableStateOf(Tab.list.firstOrNull { it.key == store.settings.lastTab } ?: Tab.GBA)
+    }
+    var index by remember { mutableStateOf(store.settings.lastIndex[tab.key] ?: 0) }
     var scanning by remember { mutableStateOf(false) }
     var artRunning by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf("") }
@@ -428,6 +452,25 @@ private fun KartridRoot(
         index = index.coerceIn(0, (countFor(tab) - 1).coerceAtLeast(0))
     }
 
+    // persist position (tab + index) on pause/stop so it does not reset when reopened
+    val curTab by rememberUpdatedState(tab)
+    val curIndex by rememberUpdatedState(index)
+    val curSettings by rememberUpdatedState(settings)
+    DisposableEffect(lifecycleOwner) {
+        val saveObs = LifecycleEventObserver { _, e ->
+            if (e == Lifecycle.Event.ON_PAUSE || e == Lifecycle.Event.ON_STOP) {
+                val s = curSettings.copy(
+                    lastIndex = curSettings.lastIndex + (curTab.key to curIndex),
+                    lastTab = curTab.key,
+                )
+                settings = s
+                store.saveSettings(s)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(saveObs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(saveObs) }
+    }
+
     val counts = remember(games) { Tab.list.map { it.key to countFor(it) }.toMap() }
     val visible = remember(tab, games) {
         val s = tab.sys
@@ -583,7 +626,6 @@ private fun KartridRoot(
     }
 
     // re-check izin tiap kali app balik ke foreground (absen pas keluar dari Settings)
-    val lifecycleOwner = LocalLifecycleOwner.current
     var resumeTick by remember { mutableStateOf(0) }
     DisposableEffect(lifecycleOwner) {
         val obs = LifecycleEventObserver { _, e ->
@@ -593,6 +635,7 @@ private fun KartridRoot(
         onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
     }
     LaunchedEffect(resumeTick) {
+        games = store.library.games
         permOk = hasStorage()
         if (permOk && games.isEmpty() && !scanning && settings.autoScan && settings.folders.isNotEmpty()) runScan()
     }

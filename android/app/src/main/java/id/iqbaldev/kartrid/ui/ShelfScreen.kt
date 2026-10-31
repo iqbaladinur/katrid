@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,9 +39,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -52,6 +56,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -295,8 +300,8 @@ fun ShelfScreen(
                         val i = Tab.list.indexOf(tab); onTab(Tab.list[(i + 1) % Tab.list.size]); sfx.tick(); true
                     }
                     AKey.KEYCODE_BUTTON_A, AKey.KEYCODE_DPAD_CENTER, AKey.KEYCODE_ENTER -> { play(); true }
-                    AKey.KEYCODE_BUTTON_X -> { current?.let { onFav(it); sfx.tick() }; true }
-                    AKey.KEYCODE_BUTTON_Y -> { onSearch(); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_X -> { onSearch(); sfx.tick(); true }
+                    AKey.KEYCODE_BUTTON_Y -> { current?.let { onFav(it); sfx.tick() }; true }
                     AKey.KEYCODE_BUTTON_SELECT -> { cartMenu = true; cartMenuSel = 0; sfx.tick(); true }
                     AKey.KEYCODE_BUTTON_B, AKey.KEYCODE_BACK -> { onSettings(); sfx.tick(); true }
                     else -> false
@@ -435,17 +440,11 @@ fun ShelfScreen(
                 .offset(y = 598.dp),
             horizontalArrangement = Arrangement.Center,
         ) {
-            HintItem("< >", "move")
-            ListSpacer()
-            HintItem("^ v", "skip")
-            ListSpacer()
-            HintItem("DRAG", "puter")
-            ListSpacer()
             HintItem("A", "insert")
             ListSpacer()
-            HintItem("X", "fav")
+            HintItem("X", "search")
             ListSpacer()
-            HintItem("Y", "search")
+            HintItem("Y", "fav")
             ListSpacer()
             HintItem("B", "settings")
             ListSpacer()
@@ -647,7 +646,7 @@ internal fun metaOf(g: Game): String {
     val parts = ArrayList<String>()
     g.region?.let { parts.add(it) }
     parts.add(sizeText(g.sizeBytes))
-    if (g.plays > 0) parts.add("main ${g.plays}×") else parts.add("never played")
+    if (g.plays > 0) parts.add("played ${g.plays}×") else parts.add("never played")
     return parts.joinToString("  ·  ")
 }
 
@@ -659,21 +658,46 @@ private fun sizeText(bytes: Long): String = when {
 
 @Composable
 internal fun HintItem(key: String, label: String) {
+    // retro keycap: single letter = circle (like the A/B buttons), longer label (SEL) = pill.
+    val single = key.length == 1
+    val shape = if (single) CircleShape else RoundedCornerShape(50)
+    val keyW = if (single) 24.dp else 38.dp
+    val density = LocalDensity.current
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
-                .size(46.dp, 22.dp)
+                .size(keyW, 24.dp)
                 .drawBehind {
-                    drawRect(T.shadow, topLeft = Offset(2f, 2f), size = Size(size.width, size.height))
+                    // hard offset shadow, same as the cards & tabs
+                    val r = if (single) size.minDimension / 2f else size.height / 2f
+                    drawRoundRect(
+                        T.shadow,
+                        topLeft = Offset(with(density) { 2.dp.toPx() }, with(density) { 2.dp.toPx() }),
+                        size = size,
+                        cornerRadius = CornerRadius(r, r),
+                    )
                 }
-                .background(T.surface)
-                .border(1.2.dp, T.hairline),
+                .clip(shape)
+                .background(T.lime)
+                .border(1.5.dp, T.black, shape),
             contentAlignment = Alignment.Center,
         ) {
-            Text(key, color = T.fg, fontFamily = MONO, fontSize = 11.sp)
+            Text(
+                text = key,
+                color = T.black,
+                fontFamily = DISPLAY,
+                fontSize = if (single) 12.sp else 9.sp,
+                textAlign = TextAlign.Center,
+            )
         }
-        Box(Modifier.width(6.dp))
-        Text(label, color = T.mutedFg, fontFamily = MONO, fontSize = 11.sp)
+        Box(Modifier.width(8.dp))
+        Text(
+            text = label.uppercase(),
+            color = T.fg,
+            fontFamily = MONO,
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.sp,
+        )
     }
 }
 
